@@ -1,0 +1,14 @@
+name: material_ribbon_example
+publish_to: none
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ribbon:
+    path: ..
+
+flutter:
+  uses-material-design: true

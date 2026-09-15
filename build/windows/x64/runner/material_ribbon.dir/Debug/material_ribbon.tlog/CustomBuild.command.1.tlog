@@ -1,0 +1,10 @@
+^D:\CODE\HEYAIRU\MATERIAL_RIBBON\WINDOWS\RUNNER\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Code/Heyairu/material_ribbon/windows -BD:/Code/Heyairu/material_ribbon/build/windows/x64 --check-stamp-file D:/Code/Heyairu/material_ribbon/build/windows/x64/runner/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

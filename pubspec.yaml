@@ -1,0 +1,21 @@
+name: material_ribbon
+description: Material 3 ribbon components for Flutter desktop, web, and adaptive layouts.
+version: 1.0.0
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.12.1
+
+# Add regular dependencies here.
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^6.0.0
+  flutter_lints: ^6.0.0
