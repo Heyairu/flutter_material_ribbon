@@ -3,7 +3,7 @@ import "package:flutter_test/flutter_test.dart";
 import "package:material_ribbon/material_ribbon.dart";
 
 void main() {
-  testWidgets('header chips and controls share a vertical center', (
+  testWidgets('quick access and tabs share a vertical center', (
     tester,
   ) async {
     for (final width in [390.0, 1200.0]) {
@@ -39,11 +39,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final chipY = tester.getCenter(find.byType(ChoiceChip)).dy;
+      final tabY = tester.getCenter(find.text('首頁')).dy;
       for (final button in find.byType(IconButton).evaluate()) {
         expect(
           tester.getCenter(find.byWidget(button.widget)).dy,
-          closeTo(chipY, 0.1),
+          closeTo(tabY, 0.1),
         );
       }
       expect(find.byType(Divider), findsNothing);
@@ -86,5 +86,40 @@ void main() {
       ),
     );
     expect(find.text("圖片格式"), findsOneWidget);
+  });
+  testWidgets('renders a group launcher and command state', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MaterialRibbon(
+            context: const RibbonContext(),
+            tabs: [
+              RibbonTab(
+                id: 'home',
+                label: '首頁',
+                groups: [
+                  RibbonGroup(
+                    label: '字型',
+                    onMoreOptions: () {},
+                    commands: [
+                      RibbonCommand(
+                        id: 'bold',
+                        label: '粗體',
+                        icon: Icons.format_bold,
+                        onInvoke: () {},
+                        type: RibbonCommandType.toggle,
+                        checkState: (_) => RibbonCheckState.checked,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('更多選項'), findsOneWidget);
+    expect(find.bySemanticsLabel('粗體'), findsOneWidget);
   });
 }
