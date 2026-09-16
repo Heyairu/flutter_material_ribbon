@@ -5,3 +5,16 @@
 # Avoid committing pubspec.lock for library packages; see
 # https://dart.dev/tools/pub/private-files#pubspec-lock.
 pubspec.lock
+
+# Avoid committing generated files; see
+# https://dart.dev/tools/pub/private-files#generated-files.
+build/
+
+# IntelliJ
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Mac
+.DS_Store

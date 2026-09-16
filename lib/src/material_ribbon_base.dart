@@ -16,8 +16,249 @@ enum RibbonCommandType { action, toggle, menu, split, gallery }
 enum RibbonCheckState { unchecked, checked, mixed }
 
 class RibbonGalleryItem<T> {
-  const RibbonGalleryItem({required this.value, required this.label, this.icon, this.onSelected});
-  final T value; final String label; final IconData? icon; final ValueChanged<T>? onSelected;
+  const RibbonGalleryItem({
+    required this.value,
+    required this.label,
+    this.icon,
+    this.preview,
+    this.tooltip,
+    this.onSelected,
+  });
+  final T value;
+  final String label;
+  final IconData? icon;
+  /// A thumbnail, colour swatch, or style sample shown in a gallery cell.
+  final Widget? preview;
+  final String? tooltip;
+  final ValueChanged<T>? onSelected;
+}
+
+/// A dense, keyboard-accessible grid for pictures, colours, and document styles.
+///
+/// [onPreview] fires as the pointer enters a cell. Use [onPreviewEnd] to
+/// restore an editor's original value when the pointer leaves the gallery.
+class RibbonGallery<T> extends StatelessWidget {
+  const RibbonGallery({
+    super.key,
+    required this.items,
+    required this.onSelected,
+    this.selectedValue,
+    this.onPreview,
+    this.onPreviewEnd,
+    this.columns = 4,
+    this.cellSize = const Size(72, 56),
+    this.showLabels = true,
+    this.enabled = true,
+    this.padding = const EdgeInsets.all(6),
+  }) : assert(columns > 0);
+
+  final List<RibbonGalleryItem<T>> items;
+  final ValueChanged<T> onSelected;
+  final T? selectedValue;
+  final ValueChanged<T>? onPreview;
+  final VoidCallback? onPreviewEnd;
+  final int columns;
+  final Size cellSize;
+  final bool showLabels;
+  final bool enabled;
+  /// Space around the cell grid. Popup galleries generally keep the default;
+  /// embedded ribbon galleries can use [EdgeInsets.zero] for row alignment.
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = 4.0;
+    // A Wrap is deliberately used instead of a shrink-wrapped GridView.
+    // MenuAnchor gives children unconstrained vertical space, which can make a
+    // scrollable GridView repeatedly relayout and lock up when opening a palette.
+    final gridWidth = columns * cellSize.width + (columns - 1) * gap;
+    return MouseRegion(
+      onExit: (_) => onPreviewEnd?.call(),
+      child: Padding(
+        padding: padding,
+        child: SizedBox(
+          width: gridWidth,
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: items.map((item) {
+              final selected = item.value == selectedValue;
+              final content = Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Expanded(child: Center(child: item.preview ?? Icon(item.icon))),
+                if (showLabels) Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ]);
+              return Tooltip(
+                message: item.tooltip ?? item.label,
+                child: MouseRegion(
+                  onEnter: (_) { if (enabled) onPreview?.call(item.value); },
+                  child: Semantics(
+                    button: true,
+                    selected: selected,
+                    label: item.label,
+                    child: Material(
+                      color: selected ? Theme.of(context).colorScheme.secondaryContainer : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      child: InkWell(
+                        onTap: enabled ? () { onSelected(item.value); item.onSelected?.call(item.value); } : null,
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(width: cellSize.width, height: cellSize.height, child: content),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class RibbonComboBoxItem<T> {
+  const RibbonComboBoxItem({required this.value, required this.label, this.leading});
+  final T value;
+  final String label;
+  final Widget? leading;
+}
+
+/// A compact labelled dropdown intended for a ribbon group.
+class RibbonComboBox<T> extends StatelessWidget {
+  const RibbonComboBox({super.key, required this.items, required this.value, required this.onChanged, this.label, this.width = 150, this.enabled = true});
+  final List<RibbonComboBoxItem<T>> items;
+  final T? value;
+  final ValueChanged<T?> onChanged;
+  final String? label;
+  final double width;
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    child: SizedBox(
+      width: width,
+      height: 40,
+      child: MenuAnchor(
+        menuChildren: items.map((item) => MenuItemButton(
+          onPressed: enabled ? () => onChanged(item.value) : null,
+          leadingIcon: item.leading,
+          child: Text(item.label),
+        )).toList(),
+        builder: (context, controller, _) => TextFormField(
+          key: ValueKey(value),
+          initialValue: items.where((item) => item.value == value).firstOrNull?.label ?? '',
+          readOnly: true,
+          enabled: enabled,
+          showCursor: false,
+          style: Theme.of(context).textTheme.bodyMedium,
+          textAlignVertical: TextAlignVertical.center,
+          onTap: () => controller.isOpen ? controller.close() : controller.open(),
+          decoration: InputDecoration(
+            hintText: label,
+            border: const OutlineInputBorder(),
+            constraints: const BoxConstraints.tightFor(height: 40),
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            suffixIconConstraints: const BoxConstraints.tightFor(width: 28, height: 32),
+            suffixIcon: const Icon(Icons.arrow_drop_down, size: 20),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// A controlled text field sized for placement in a [RibbonGroup].
+class RibbonTextBox extends StatelessWidget {
+  const RibbonTextBox({super.key, required this.value, required this.onChanged, this.label, this.hintText, this.width = 150, this.enabled = true});
+  final String value;
+  final ValueChanged<String> onChanged;
+  final String? label, hintText;
+  final double width;
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) => Semantics(label: label, child: SizedBox(width: width, height: 40, child: TextFormField(
+    key: ValueKey(value),
+    initialValue: value,
+    enabled: enabled,
+    onChanged: onChanged,
+    decoration: InputDecoration(hintText: hintText ?? label, border: const OutlineInputBorder(), isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
+  )));
+}
+
+/// A numeric field with ribbon-sized increment and decrement affordances.
+class RibbonSpinBox extends StatelessWidget {
+  const RibbonSpinBox({super.key, required this.value, required this.onChanged, this.min = 0, this.max = 100, this.step = 1, this.label, this.width = 108, this.decimalPlaces = 0});
+  final double value, min, max, step;
+  final ValueChanged<double> onChanged;
+  final String? label;
+  final double width;
+  final int decimalPlaces;
+  double get _clamped => value.clamp(min, max).toDouble();
+  @override
+  Widget build(BuildContext context) => SizedBox(width: width, height: 40, child: TextFormField(
+      key: ValueKey(value),
+      initialValue: _clamped.toStringAsFixed(decimalPlaces),
+      style: Theme.of(context).textTheme.bodyMedium,
+      textAlignVertical: TextAlignVertical.center,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onFieldSubmitted: (text) { final next = double.tryParse(text); if (next != null) onChanged(next.clamp(min, max).toDouble()); },
+      decoration: InputDecoration(
+        hintText: label, border: const OutlineInputBorder(),
+        constraints: const BoxConstraints.tightFor(height: 40),
+        isDense: true, contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        suffixIconConstraints: const BoxConstraints.tightFor(width: 24, height: 32),
+        suffixIcon: Column(children: [
+          _stepButton('Increase ${label ?? ''}', Icons.arrow_drop_up, _clamped >= max ? null : () => onChanged((_clamped + step).clamp(min, max).toDouble())),
+          _stepButton('Decrease ${label ?? ''}', Icons.arrow_drop_down, _clamped <= min ? null : () => onChanged((_clamped - step).clamp(min, max).toDouble())),
+        ]),
+      ),
+    ));
+
+  Widget _stepButton(String tooltip, IconData icon, VoidCallback? onPressed) =>
+    SizedBox(width: 24, height: 16, child: IconButton(
+      tooltip: tooltip, onPressed: onPressed,
+      style: IconButton.styleFrom(
+        minimumSize: Size.zero, padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+      ),
+      iconSize: 16, icon: Icon(icon),
+    ));
+}
+
+/// A palette button backed by [RibbonGallery], with optional hover preview.
+class RibbonColorPicker extends StatelessWidget {
+  const RibbonColorPicker({super.key, required this.colors, required this.value, required this.onChanged, this.onPreview, this.onPreviewEnd, this.label = 'Color', this.columns = 6});
+  final List<Color> colors;
+  final Color value;
+  final ValueChanged<Color> onChanged;
+  final ValueChanged<Color>? onPreview;
+  final VoidCallback? onPreviewEnd;
+  final String label;
+  final int columns;
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+    menuChildren: [SizedBox(width: columns * 40.0 + (columns - 1) * 4.0 + 12, child: RibbonGallery<Color>(
+      items: colors.map((color) => RibbonGalleryItem(value: color, label: _colorName(color), preview: DecoratedBox(decoration: BoxDecoration(color: color, border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(2))))).toList(),
+      selectedValue: value, onSelected: onChanged, onPreview: onPreview, onPreviewEnd: onPreviewEnd, columns: columns, cellSize: const Size(40, 40), showLabels: false,
+    ))],
+    builder: (context, controller, _) => Tooltip(message: label, child: IconButton.outlined(onPressed: () => controller.isOpen ? controller.close() : controller.open(), icon: Icon(Icons.format_color_text, color: value))),
+  );
+  static String _colorName(Color color) => '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+}
+
+/// A font family dropdown with each option rendered in its own typeface.
+class RibbonFontPicker extends StatelessWidget {
+  const RibbonFontPicker({super.key, required this.fonts, required this.value, required this.onChanged, this.width = 170});
+  final List<String> fonts;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  final double width;
+  @override
+  Widget build(BuildContext context) => RibbonComboBox<String>(
+    width: width, label: 'Font', value: value, onChanged: onChanged,
+    items: fonts.map((font) => RibbonComboBoxItem(value: font, label: font, leading: Text('A', style: TextStyle(fontFamily: font)))).toList(),
+  );
 }
 
 /// One command can expose an action, toggle, menu, split-button, or gallery.
@@ -27,7 +268,7 @@ class RibbonCommand {
     this.description, this.shortcut, this.keyTip, this.type = RibbonCommandType.action,
     this.size = RibbonCommandSize.medium, this.isEnabled, this.disabledReason,
     this.isBusy, this.checkState, this.selectedValue, this.menuCommands = const [],
-    this.galleryItems = const [],
+    this.galleryItems = const [], this.onGalleryPreview, this.onGalleryPreviewEnd,
   });
   final String id, label;
   final String? description, shortcut, keyTip;
@@ -42,6 +283,10 @@ class RibbonCommand {
   final Object? Function(RibbonContext)? selectedValue;
   final List<RibbonCommand> menuCommands;
   final List<RibbonGalleryItem<Object?>> galleryItems;
+  /// Optional temporary application while a gallery cell is hovered.
+  final ValueChanged<Object?>? onGalleryPreview;
+  /// Restore the pre-preview value when the gallery pointer exits.
+  final VoidCallback? onGalleryPreviewEnd;
   bool enabledFor(RibbonContext context) => isEnabled?.call(context) ?? true;
   bool busyFor(RibbonContext context) => isBusy?.call(context) ?? false;
   RibbonCheckState stateFor(RibbonContext context) => checkState?.call(context) ?? RibbonCheckState.unchecked;
@@ -275,7 +520,7 @@ class _QatMoreButton extends StatelessWidget {
 }
 
 class RibbonHorizontalScrollView extends StatefulWidget {
-  const RibbonHorizontalScrollView({super.key, required this.children, this.padding, this.scrollbarPadding = 12});
+  const RibbonHorizontalScrollView({super.key, required this.children, this.padding, this.scrollbarPadding = 0});
   final List<Widget> children; final EdgeInsetsGeometry? padding; final double scrollbarPadding;
   @override State<RibbonHorizontalScrollView> createState() => _RibbonHorizontalScrollViewState();
 }
@@ -288,7 +533,7 @@ class _RibbonHorizontalScrollViewState extends State<RibbonHorizontalScrollView>
 class _TabBody extends StatelessWidget {
   const _TabBody({required this.tab, required this.context, required this.showKeyTips});
   final RibbonTab tab; final RibbonContext context; final bool showKeyTips;
-  @override Widget build(BuildContext buildContext) => RibbonHorizontalScrollView(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), children: List.generate(tab.groups.length, (i) => [_Group(group: tab.groups[i], context: context, showKeyTips: showKeyTips), if (i < tab.groups.length - 1) const VerticalDivider(width: 24, indent: 6, endIndent: 6)]).expand((items) => items).toList());
+  @override Widget build(BuildContext buildContext) => RibbonHorizontalScrollView(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), children: List.generate(tab.groups.length, (i) => [Align(alignment: Alignment.center, child: _Group(group: tab.groups[i], context: context, showKeyTips: showKeyTips)), if (i < tab.groups.length - 1) const VerticalDivider(width: 24, indent: 4, endIndent: 4)]).expand((items) => items).toList());
 }
 class _MobileActions extends StatelessWidget {
   const _MobileActions({required this.tab, required this.context});
@@ -298,17 +543,23 @@ class _MobileActions extends StatelessWidget {
 class _Group extends StatelessWidget {
   const _Group({required this.group, required this.context, required this.showKeyTips});
   final RibbonGroup group; final RibbonContext context; final bool showKeyTips;
-  @override Widget build(BuildContext buildContext) => SizedBox(width: group.width, child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Expanded(child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if (group.commands.isNotEmpty) SizedBox(height: group.rows * 48 + (group.rows - 1) * 6, child: Wrap(direction: Axis.vertical, spacing: 6, runSpacing: 6, children: group.commands.map((command) => _KeyTip(label: command.keyTip, visible: showKeyTips, child: _CommandButton(command, context))).toList())),
+  @override Widget build(BuildContext buildContext) {
+    // Large commands occupy a whole command column while small and medium
+    // commands tile vertically. This mirrors the dominant Office grouping
+    // pattern without forcing callers to hand-build every column.
+    final commandHeight = group.rows * 40.0 + (group.rows - 1) * 4.0;
+    return SizedBox(width: group.width, child: Column(mainAxisSize: MainAxisSize.min, children: [
+    SizedBox(height: commandHeight, child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (group.commands.isNotEmpty) SizedBox(height: commandHeight, child: Wrap(direction: Axis.vertical, spacing: 4, runSpacing: 6, children: group.commands.map((command) => _KeyTip(label: command.keyTip, visible: showKeyTips, child: _CommandButton(command, context, largeHeight: commandHeight))).toList())),
       ...group.controls,
     ])),
-    SizedBox(height: 22, child: Row(mainAxisSize: MainAxisSize.min, children: [Text(group.label, style: Theme.of(buildContext).textTheme.labelSmall), if (group.onMoreOptions != null) IconButton(tooltip: group.moreOptionsTooltip, iconSize: 14, visualDensity: VisualDensity.compact, onPressed: group.onMoreOptions, icon: const Icon(Icons.arrow_outward))])),
+    SizedBox(height: 20, child: Row(mainAxisSize: MainAxisSize.min, children: [Text(group.label, style: Theme.of(buildContext).textTheme.labelSmall), if (group.onMoreOptions != null) IconButton(tooltip: group.moreOptionsTooltip, iconSize: 14, visualDensity: VisualDensity.compact, onPressed: group.onMoreOptions, icon: const Icon(Icons.arrow_outward))])),
   ]));
+  }
 }
 class _CommandButton extends StatelessWidget {
-  const _CommandButton(this.command, this.context, {this.compact = false});
-  final RibbonCommand command; final RibbonContext context; final bool compact;
+  const _CommandButton(this.command, this.context, {this.compact = false, this.largeHeight});
+  final RibbonCommand command; final RibbonContext context; final bool compact; final double? largeHeight;
   @override Widget build(BuildContext buildContext) {
     final enabled = command.enabledFor(context); final busy = command.busyFor(context); final state = command.stateFor(context);
     final tooltip = [command.label, if (!enabled && command.disabledReasonFor(context) != null) command.disabledReasonFor(context)!, if (command.shortcut != null) command.shortcut!].join("\n");
@@ -344,7 +595,7 @@ class _CommandButton extends StatelessWidget {
     if (command.size == RibbonCommandSize.large && !compact) {
       return SizedBox(
         width: 76,
-        height: 102,
+        height: largeHeight ?? 102,
         child: TextButton(
           onPressed: enabled ? action : null,
           style: TextButton.styleFrom(
@@ -396,11 +647,20 @@ class _MenuButton extends StatelessWidget {
   const _MenuButton(this.command, this.context, this.icon, this.enabled, this.onInvoke, {this.invoke = true, this.compact = false});
   final RibbonCommand command; final RibbonContext context; final Widget icon; final bool enabled; final VoidCallback onInvoke; final bool invoke; final bool compact;
   @override Widget build(BuildContext buildContext) => MenuAnchor(
-    menuChildren: [
-      ...(command.type == RibbonCommandType.gallery
-          ? command.galleryItems.map((item) => MenuItemButton(onPressed: enabled ? () => item.onSelected?.call(item.value) : null, leadingIcon: item.icon == null ? null : Icon(item.icon), child: Text(item.label)))
-          : command.menuCommands.map((item) => MenuItemButton(onPressed: item.enabledFor(context) ? item.onInvoke : null, leadingIcon: Icon(item.icon), child: Text(item.label)))),
-    ],
+    menuChildren: command.type == RibbonCommandType.gallery
+        ? [SizedBox(
+            width: 312,
+            child: RibbonGallery<Object?>(
+              items: command.galleryItems,
+              selectedValue: command.selectedValue?.call(this.context),
+              onSelected: enabled ? (value) { command.onInvoke(); } : (_) {},
+              onPreview: command.onGalleryPreview,
+              onPreviewEnd: command.onGalleryPreviewEnd,
+              columns: 4,
+              enabled: enabled,
+            ),
+          )]
+        : command.menuCommands.map((item) => MenuItemButton(onPressed: item.enabledFor(context) ? item.onInvoke : null, leadingIcon: Icon(item.icon), child: Text(item.label))).toList(),
     builder: (context, controller, _) {
       void openMenu() {
         if (invoke && command.type == RibbonCommandType.menu) onInvoke();

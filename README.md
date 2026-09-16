@@ -1,38 +1,205 @@
 # Material Ribbon
 
-Material 3 Ribbon 元件，適用於 Flutter 桌面與 Web 應用程式。主分頁使用
-`ChoiceChip`，支援依編輯器選取內容出現的淺色情境分頁。
+Material 3 ribbon components for Flutter desktop, web, phone, and adaptive layouts. `material_ribbon` provides an Office-inspired command surface built from tabs, groups, commands, galleries, and compact form controls.
 
-## 完整範例
+## Features
 
-範例位於 `example/material_ribbon_example.dart`，包含：
+- Material 3 ribbon tabs with horizontal scrolling for constrained widths.
+- Contextual tabs that appear only for a matching editor selection.
+- Small, medium, and large commands, including action, toggle, menu, split, and gallery variants.
+- A customizable Quick Access Toolbar, optional persistence, and optional command search.
+- Keyboard key tips (`Alt`, `F10`, or a tab/command key tip) and `Ctrl+F1` to collapse or expand the ribbon.
+- Ribbon-ready gallery, colour picker, combo box, font picker, text box, and spin box controls.
+- An adaptive compact layout below 720 logical pixels, or whenever `compact` is set explicitly.
 
-- 首頁、圖片格式與表格設計等 Ribbon 分頁
-- 選取文字／圖片／表格時動態顯示的情境分頁
-- 字級與文字色彩控制項
-- 命令的啟用條件、快捷鍵文字與執行回饋
-- 預設關閉、可由右上角選單啟用的命令面板
+## Installation
 
-在 `example` 目錄第一次建立預覽平台後執行：
+```sh
+flutter pub add material_ribbon
+```
+
+```dart
+import 'package:material_ribbon/material_ribbon.dart';
+```
+
+## Quick start
+
+`MaterialRibbon` is controlled by the host: provide current editor state in `RibbonContext` and update state from callbacks.
+
+```dart
+class EditorPage extends StatefulWidget {
+  const EditorPage({super.key});
+
+  @override
+  State<EditorPage> createState() => _EditorPageState();
+}
+
+class _EditorPageState extends State<EditorPage> {
+  bool _collapsed = false;
+  String? _selectionType;
+
+  @override
+  Widget build(BuildContext context) {
+    final ribbonContext = RibbonContext(
+      selectionType: _selectionType,
+      selectionCount: _selectionType == null ? 0 : 1,
+    );
+
+    return Scaffold(
+      body: Column(
+        children: [
+          MaterialRibbon(
+            context: ribbonContext,
+            collapsed: _collapsed,
+            onCollapsedChanged: (value) => setState(() => _collapsed = value),
+            quickAccessCommands: [
+              RibbonCommand(
+                id: 'save',
+                label: 'Save',
+                icon: Icons.save_outlined,
+                shortcut: 'Ctrl+S',
+                keyTip: 'S',
+                onInvoke: () {/* save the document */},
+              ),
+            ],
+            tabs: [
+              RibbonTab(
+                id: 'home',
+                label: 'Home',
+                keyTip: 'H',
+                groups: [
+                  RibbonGroup(
+                    label: 'Clipboard',
+                    commands: [
+                      RibbonCommand(
+                        id: 'paste',
+                        label: 'Paste',
+                        icon: Icons.content_paste_outlined,
+                        size: RibbonCommandSize.large,
+                        onInvoke: () {/* paste */},
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              RibbonTab(
+                id: 'picture-format',
+                label: 'Picture Format',
+                isVisible: (value) => value.selectionType == 'image',
+                groups: const [],
+              ),
+            ],
+          ),
+          const Expanded(child: Placeholder()),
+        ],
+      ),
+    );
+  }
+}
+```
+
+## Commands and groups
+
+Use `RibbonCommand` for each operation and place commands in a `RibbonGroup`. Large commands span the group command height; small and medium commands tile vertically. `rows` controls the number of command rows (from 1 through 3).
+
+```dart
+RibbonGroup(
+  label: 'Paragraph',
+  rows: 2,
+  commands: [
+    RibbonCommand(
+      id: 'bold',
+      label: 'Bold',
+      icon: Icons.format_bold,
+      type: RibbonCommandType.toggle,
+      checkState: (_) => isBold
+          ? RibbonCheckState.checked
+          : RibbonCheckState.unchecked,
+      onInvoke: toggleBold,
+    ),
+    RibbonCommand(
+      id: 'align',
+      label: 'Align',
+      icon: Icons.format_align_left,
+      type: RibbonCommandType.menu,
+      menuCommands: alignmentCommands,
+      onInvoke: () {},
+    ),
+  ],
+)
+```
+
+Set `isEnabled`, `isBusy`, and `disabledReason` to derive command state from the current `RibbonContext`. The ribbon disables unavailable or busy commands and displays the reason in their tooltip.
+
+## Contextual tabs
+
+`RibbonTab.isVisible` is evaluated whenever the supplied `RibbonContext` changes, making it suitable for selection-sensitive tooling:
+
+```dart
+RibbonTab(
+  id: 'table-layout',
+  label: 'Table Layout',
+  isVisible: (context) => context.selectionType == 'table',
+  groups: tableGroups,
+)
+```
+
+## Ribbon controls and galleries
+
+`RibbonGroup.controls` accepts any widget. The package includes compact, controlled widgets intended for this area: `RibbonGallery`, `RibbonColorPicker`, `RibbonComboBox`, `RibbonFontPicker`, `RibbonTextBox`, and `RibbonSpinBox`.
+
+For a gallery, `onPreview` is called while a pointer enters a cell and `onPreviewEnd` is called when it leaves the gallery. This lets an editor show a temporary preview and restore the committed value afterwards.
+
+```dart
+RibbonColorPicker(
+  colors: const [Colors.black, Colors.red, Colors.blue],
+  value: committedColor,
+  onChanged: (color) => setState(() {
+    committedColor = color;
+    previewColor = color;
+  }),
+  onPreview: (color) => setState(() => previewColor = color),
+  onPreviewEnd: () => setState(() => previewColor = committedColor),
+)
+```
+
+## Quick Access Toolbar and personalization
+
+Pass `quickAccessCommands` to set the default Quick Access Toolbar. The older `leadingCommands` property remains supported as an alias. To allow users to customize the toolbar, provide `onPersonalizationChanged`, a `RibbonPersonalizationStore`, or both. The store is application-owned, so it can use shared preferences, a database, or another persistence mechanism.
+
+`RibbonPersonalization` stores Quick Access command IDs, tab ordering, and hidden tab IDs. Command IDs and tab IDs should therefore be stable and unique.
+
+## Optional command palette
+
+`RibbonCommandPalette` is independent of the ribbon. Place it in `MaterialRibbon.commandPalette` to show a search field in the desktop ribbon header. It is automatically omitted on narrow layouts.
+
+```dart
+MaterialRibbon(
+  // ...tabs and context...
+  commandPalette: RibbonCommandPalette(
+    commands: commands,
+    context: ribbonContext,
+  ),
+)
+```
+
+## Example
+
+The runnable sample is in [`example/material_ribbon_example.dart`](example/material_ribbon_example.dart). After creating the example platforms, run it with:
 
 ```powershell
+cd example
 flutter create --platforms=windows,web .
 flutter run -d windows -t material_ribbon_example.dart
 ```
 
-## 命令面板為選用功能
+## API reference
 
-`RibbonCommandPalette` 是獨立元件，只有將它放入你的 AppBar 或版面時才會出現：
+See [API.md](API.md) for the complete public API, constructor parameters, and behaviour notes.
 
-```dart
-if (showCommandPalette)
-  SizedBox(
-    width: 300,
-    child: RibbonCommandPalette(
-      commands: commands,
-      context: ribbonContext,
-    ),
-  )
+## Development
+
+```sh
+flutter analyze
+flutter test
 ```
-
-不加入此元件不會影響 Ribbon、情境分頁或命令執行。
