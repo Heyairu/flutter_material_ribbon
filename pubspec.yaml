@@ -26,3 +26,11 @@ dev_dependencies:
     sdk: flutter
   lints: ^6.0.0
   flutter_lints: ^6.0.0
+
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:

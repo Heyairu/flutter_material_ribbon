@@ -143,9 +143,3 @@ class _WordRibbonExampleState extends State<WordRibbonExample> {
     );
   }
 }
-
-class _Select extends StatelessWidget {
-  const _Select({required this.label});
-  final String label;
-  @override Widget build(BuildContext context) => DecoratedBox(decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(4)), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6), child: Row(children: [Expanded(child: Text(label, overflow: TextOverflow.ellipsis)), const Icon(Icons.arrow_drop_down, size: 16)])));
-}

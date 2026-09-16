@@ -652,7 +652,7 @@ class _MenuButton extends StatelessWidget {
             width: 312,
             child: RibbonGallery<Object?>(
               items: command.galleryItems,
-              selectedValue: command.selectedValue?.call(this.context),
+              selectedValue: command.selectedValue?.call(context),
               onSelected: enabled ? (value) { command.onInvoke(); } : (_) {},
               onPreview: command.onGalleryPreview,
               onPreviewEnd: command.onGalleryPreviewEnd,
