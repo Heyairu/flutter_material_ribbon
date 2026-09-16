@@ -317,23 +317,27 @@ class _CommandButton extends StatelessWidget {
     final main = _button(buildContext, icon, action, enabled && !busy, state);
     final child = switch (command.type) {
       RibbonCommandType.menu || RibbonCommandType.gallery => _MenuButton(command, context, icon, enabled && !busy, action, compact: compact),
-      RibbonCommandType.split => compact
-          ? _MenuButton(
+      RibbonCommandType.split => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            main,
+            _MenuButton(
               command,
               context,
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [icon, const Icon(Icons.arrow_drop_down, size: 18)],
-              ),
+              const Icon(Icons.arrow_drop_down),
               enabled && !busy,
               action,
               invoke: false,
-              compact: true,
-            )
-          : Row(mainAxisSize: MainAxisSize.min, children: [main, _MenuButton(command, context, const Icon(Icons.arrow_drop_down), enabled && !busy, action, invoke: false, compact: false)]),
+              compact: false,
+            ),
+          ],
+        ),
       _ => main,
     };
-    return Tooltip(message: tooltip, child: Semantics(button: true, enabled: enabled, checked: command.type == RibbonCommandType.toggle ? state == RibbonCheckState.checked : null, label: command.label, child: child));
+    final constrainedChild = command.size == RibbonCommandSize.medium || compact
+        ? SizedBox(height: 40, child: child)
+        : child;
+    return Tooltip(message: tooltip, child: Semantics(button: true, enabled: enabled, checked: command.type == RibbonCommandType.toggle ? state == RibbonCheckState.checked : null, label: command.label, child: constrainedChild));
   }
   Widget _button(BuildContext buildContext, Widget icon, VoidCallback action, bool enabled, RibbonCheckState state) {
     final selected = command.type == RibbonCommandType.toggle && state == RibbonCheckState.checked;
@@ -392,16 +396,41 @@ class _MenuButton extends StatelessWidget {
   const _MenuButton(this.command, this.context, this.icon, this.enabled, this.onInvoke, {this.invoke = true, this.compact = false});
   final RibbonCommand command; final RibbonContext context; final Widget icon; final bool enabled; final VoidCallback onInvoke; final bool invoke; final bool compact;
   @override Widget build(BuildContext buildContext) => MenuAnchor(
-    menuChildren: command.type == RibbonCommandType.gallery
-      ? command.galleryItems.map((item) => MenuItemButton(onPressed: enabled ? () => item.onSelected?.call(item.value) : null, leadingIcon: item.icon == null ? null : Icon(item.icon), child: Text(item.label))).toList()
-      : command.menuCommands.map((item) => MenuItemButton(onPressed: item.enabledFor(context) ? item.onInvoke : null, leadingIcon: Icon(item.icon), child: Text(item.label))).toList(),
+    menuChildren: [
+      ...(command.type == RibbonCommandType.gallery
+          ? command.galleryItems.map((item) => MenuItemButton(onPressed: enabled ? () => item.onSelected?.call(item.value) : null, leadingIcon: item.icon == null ? null : Icon(item.icon), child: Text(item.label)))
+          : command.menuCommands.map((item) => MenuItemButton(onPressed: item.enabledFor(context) ? item.onInvoke : null, leadingIcon: Icon(item.icon), child: Text(item.label)))),
+    ],
     builder: (context, controller, _) {
       void openMenu() {
         if (invoke && command.type == RibbonCommandType.menu) onInvoke();
         controller.isOpen ? controller.close() : controller.open();
       }
+      if (compact && command.type == RibbonCommandType.split) {
+        return SizedBox(
+          height: 40,
+          child: TextButton(
+            onPressed: enabled ? openMenu : null,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              icon,
+              const SizedBox(width: 6),
+              Text(command.label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
+              const SizedBox(width: 2),
+              const Icon(Icons.arrow_drop_down, size: 18),
+            ]),
+          ),
+        );
+      }
       if (command.size == RibbonCommandSize.medium || compact) {
-        return TextButton.icon(
+        return SizedBox(
+          height: 40,
+          child: TextButton.icon(
           onPressed: enabled ? openMenu : null,
           icon: icon,
           label: Text(command.label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis),
@@ -410,6 +439,7 @@ class _MenuButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             visualDensity: VisualDensity.compact,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           ),
         );
       }
