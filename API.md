@@ -67,6 +67,12 @@ headerActions: [
 ],
 ```
 
+### `RibbonPopup`
+
+A standard popup surface for ribbon menus, galleries, and pickers. Supply `menuChildren` and a `builder`; the builder receives the `MenuController` used to open or close the popup. Optional properties include `controller`, `childFocusNode`, `style`, `alignmentOffset`, `consumeOutsideTap`, `onOpen`, `onClose`, `crossAxisUnconstrained`, and `useRootOverlay`.
+
+By default, the popup uses the current theme's surface-container colour, an elevation of `4`, a 6px rounded shape, and clipped popup content. Pass `style` to replace these defaults.
+
 ### `RibbonGroup`
 
 Groups commands and arbitrary controls under a label.

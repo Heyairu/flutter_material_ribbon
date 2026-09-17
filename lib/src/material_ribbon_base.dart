@@ -176,6 +176,68 @@ class RibbonActionChip extends StatelessWidget {
   );
 }
 
+/// A standard popup surface for ribbon menus, galleries, and pickers.
+///
+/// [menuChildren] contains the popup content. Use [builder] to create the
+/// control that opens it; the supplied [MenuController] can toggle the popup.
+/// The component keeps popup styling and positioning consistent across ribbon
+/// controls while retaining the keyboard and dismissal behaviour of
+/// [MenuAnchor].
+class RibbonPopup extends StatelessWidget {
+  const RibbonPopup({
+    super.key,
+    required this.menuChildren,
+    required this.builder,
+    this.controller,
+    this.childFocusNode,
+    this.style,
+    this.alignmentOffset = Offset.zero,
+    this.consumeOutsideTap = false,
+    this.onOpen,
+    this.onClose,
+    this.crossAxisUnconstrained = true,
+    this.useRootOverlay = false,
+  });
+
+  final List<Widget> menuChildren;
+  final MenuAnchorChildBuilder builder;
+  final MenuController? controller;
+  final FocusNode? childFocusNode;
+  final MenuStyle? style;
+  final Offset alignmentOffset;
+  final bool consumeOutsideTap;
+  final VoidCallback? onOpen;
+  final VoidCallback? onClose;
+  final bool crossAxisUnconstrained;
+  final bool useRootOverlay;
+
+  MenuStyle _defaultStyle(BuildContext context) => MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(
+      Theme.of(context).colorScheme.surfaceContainer,
+    ),
+    elevation: const WidgetStatePropertyAll(4),
+    shape: WidgetStatePropertyAll(
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => MenuAnchor(
+    controller: controller,
+    childFocusNode: childFocusNode,
+    style: style ?? _defaultStyle(context),
+    alignmentOffset: alignmentOffset,
+    clipBehavior: Clip.antiAlias,
+    consumeOutsideTap: consumeOutsideTap,
+    onOpen: onOpen,
+    onClose: onClose,
+    crossAxisUnconstrained: crossAxisUnconstrained,
+    useRootOverlay: useRootOverlay,
+    menuChildren: menuChildren,
+    builder: builder,
+  );
+}
+
 class RibbonGalleryItem<T> {
   const RibbonGalleryItem({
     required this.value,
@@ -339,7 +401,7 @@ class RibbonFeaturedGallery<T> extends StatelessWidget {
     final visibleRows = (visibleFeaturedItems.length / featuredCols).ceil();
     final width = featuredCols * featuredCellSize.width + 30;
 
-    return MenuAnchor(
+    return RibbonPopup(
       menuChildren: [
         SizedBox(
           width: galleryWidth,
@@ -586,7 +648,7 @@ class RibbonColorPicker extends StatelessWidget {
   final String label;
   final int columns;
   @override
-  Widget build(BuildContext context) => MenuAnchor(
+  Widget build(BuildContext context) => RibbonPopup(
     menuChildren: [SizedBox(width: columns * 40.0 + (columns - 1) * 4.0 + 12, child: RibbonGallery<Color>(
       items: colors.map((color) => RibbonGalleryItem(value: color, label: _colorName(color), preview: DecoratedBox(decoration: BoxDecoration(color: color, border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), borderRadius: BorderRadius.circular(2))))).toList(),
       selectedValue: value, onSelected: onChanged, onPreview: onPreview, onPreviewEnd: onPreviewEnd, columns: columns, cellSize: const Size(40, 40), showLabels: false,
@@ -1135,8 +1197,7 @@ class RibbonCol extends StatelessWidget {
     required this.children,
     this.spacing = 4,
     this.crossAxisAlignment = CrossAxisAlignment.center,
-  }) : assert(children.length <= maxChildren),
-       assert(spacing >= 0);
+  }) : assert(spacing >= 0);
 
   static const int maxChildren = 3;
 
@@ -1145,16 +1206,22 @@ class RibbonCol extends StatelessWidget {
   final CrossAxisAlignment crossAxisAlignment;
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: crossAxisAlignment,
-    children: [
-      for (var index = 0; index < children.length; index++) ...[
-        if (index > 0) SizedBox(height: spacing),
-        children[index],
+  Widget build(BuildContext context) {
+    assert(
+      children.length <= maxChildren,
+      'RibbonCol accepts at most $maxChildren children.',
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        for (var index = 0; index < children.length; index++) ...[
+          if (index > 0) SizedBox(height: spacing),
+          children[index],
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 /// A compact control grid for use inside a [RibbonGroup].
@@ -1369,7 +1436,7 @@ class _CommandButton extends StatelessWidget {
 class _MenuButton extends StatelessWidget {
   const _MenuButton(this.command, this.context, this.icon, this.enabled, this.onInvoke, {this.invoke = true, this.compact = false, this.compactSmall = false});
   final RibbonCommand command; final RibbonContext context; final Widget icon; final bool enabled; final VoidCallback onInvoke; final bool invoke; final bool compact; final bool compactSmall;
-  @override Widget build(BuildContext buildContext) => MenuAnchor(
+  @override Widget build(BuildContext buildContext) => RibbonPopup(
     menuChildren: command.type == RibbonCommandType.gallery
         ? [SizedBox(
             width: 312,

@@ -204,22 +204,100 @@ class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
     ];
   }
 
-  Widget _fontControls() => SizedBox(width: 312, child: Column(children: [
-        Row(children: [
-          Expanded(child: RibbonFontPicker(fonts: const ["PMingLiU (本文)", "Arial", "Calibri", "Times New Roman"], value: _fontFamily, onChanged: (value) => setState(() => _fontFamily = value ?? _fontFamily))),
-          const SizedBox(width: 6),
-          RibbonSpinBox(value: _fontSize, min: 8, max: 72, label: "pt", width: 82, onChanged: (value) => setState(() => _fontSize = value)),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          IconButton(isSelected: _bold, tooltip: "粗體", onPressed: _toggleBold, icon: const Icon(Icons.format_bold)),
-          IconButton(isSelected: _italic, tooltip: "斜體", onPressed: () => setState(() => _italic = !_italic), icon: const Icon(Icons.format_italic)),
-          IconButton(isSelected: _underline, tooltip: "底線", onPressed: () => setState(() => _underline = !_underline), icon: const Icon(Icons.format_underline)),
-          RibbonColorPicker(label: "文字色彩", colors: const [Colors.black, Colors.red, Colors.orange, Colors.green, Colors.blue, Colors.purple], value: _committedColor, onChanged: (color) => setState(() { _committedColor = color; _previewColor = color; }), onPreview: (color) => setState(() => _previewColor = color), onPreviewEnd: () => setState(() => _previewColor = _committedColor)),
-          const SizedBox(width: 4),
-          SizedBox(width: 104, child: RibbonComboBox<String>(label: "行距", value: _lineSpacing, items: const [RibbonComboBoxItem(value: "1.0", label: "1.0"), RibbonComboBoxItem(value: "1.5", label: "1.5"), RibbonComboBoxItem(value: "2.0", label: "2.0")], onChanged: (value) => setState(() => _lineSpacing = value ?? _lineSpacing))),
-        ]),
-      ]));
+  Widget _fontControls() => SizedBox(
+        width: 312,
+        child: RibbonCol(
+          spacing: 8,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RibbonRowGrid(
+              spacing: 6,
+              children: [
+                RibbonFontPicker(
+                  fonts: const [
+                    "PMingLiU (本文)",
+                    "Arial",
+                    "Calibri",
+                    "Times New Roman",
+                  ],
+                  value: _fontFamily,
+                  onChanged: (value) =>
+                      setState(() => _fontFamily = value ?? _fontFamily),
+                ),
+                RibbonSpinBox(
+                  value: _fontSize,
+                  min: 8,
+                  max: 72,
+                  label: "pt",
+                  width: 82,
+                  onChanged: (value) => setState(() => _fontSize = value),
+                ),
+              ],
+            ),
+            RibbonRowGrid(
+              children: [
+                RibbonRowGrid(
+                  spacing: 0,
+                  children: [
+                    IconButton(
+                      isSelected: _bold,
+                      tooltip: "粗體",
+                      onPressed: _toggleBold,
+                      icon: const Icon(Icons.format_bold),
+                    ),
+                    IconButton(
+                      isSelected: _italic,
+                      tooltip: "斜體",
+                      onPressed: () => setState(() => _italic = !_italic),
+                      icon: const Icon(Icons.format_italic),
+                    ),
+                    IconButton(
+                      isSelected: _underline,
+                      tooltip: "底線",
+                      onPressed: () => setState(() => _underline = !_underline),
+                      icon: const Icon(Icons.format_underline),
+                    ),
+                  ],
+                ),
+                RibbonColorPicker(
+                  label: "文字色彩",
+                  colors: const [
+                    Colors.black,
+                    Colors.red,
+                    Colors.orange,
+                    Colors.green,
+                    Colors.blue,
+                    Colors.purple,
+                  ],
+                  value: _committedColor,
+                  onChanged: (color) => setState(() {
+                    _committedColor = color;
+                    _previewColor = color;
+                  }),
+                  onPreview: (color) =>
+                      setState(() => _previewColor = color),
+                  onPreviewEnd: () =>
+                      setState(() => _previewColor = _committedColor),
+                ),
+                SizedBox(
+                  width: 104,
+                  child: RibbonComboBox<String>(
+                    label: "行距",
+                    value: _lineSpacing,
+                    items: const [
+                      RibbonComboBoxItem(value: "1.0", label: "1.0"),
+                      RibbonComboBoxItem(value: "1.5", label: "1.5"),
+                      RibbonComboBoxItem(value: "2.0", label: "2.0"),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _lineSpacing = value ?? _lineSpacing),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
 
   /// Generic base component: the first three styles stay in the ribbon and
   /// the expander reveals the complete gallery.
@@ -279,9 +357,49 @@ class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
 
   Widget _paletteButton() => IconButton(tooltip: _showPalette ? "隱藏命令搜尋" : "顯示命令搜尋", onPressed: () => setState(() => _showPalette = !_showPalette), icon: Icon(_showPalette ? Icons.search_off_outlined : Icons.search));
   Widget _compactButton() => IconButton(tooltip: _compact ? "完整模式" : "精簡模式", onPressed: () => setState(() => _compact = !_compact), icon: Icon(_compact ? Icons.view_stream_outlined : Icons.view_compact_outlined));
-  Widget _qatModeMenu() => MenuAnchor(menuChildren: [
-        MenuItemButton(onPressed: () => setState(() => _personalization = const RibbonPersonalization()), child: const Text("使用程式預設 QAT")),
-        MenuItemButton(onPressed: () => setState(() => _personalization = _personalization.copyWith(quickAccessCustomized: true, quickAccessCommandIds: const [])), child: const Text("清空 QAT")),
-      ], builder: (context, controller, _) => IconButton(tooltip: "QAT 模式", onPressed: () => controller.isOpen ? controller.close() : controller.open(), icon: const Icon(Icons.more_horiz)));
-  Widget _devicePreviewMenu() => MenuAnchor(menuChildren: [1200, 820, 390].map((width) => MenuItemButton(onPressed: () => setState(() => _previewWidth = width.toDouble()), child: Text(width == 1200 ? "桌面" : width == 820 ? "平板" : "手機"))).toList(), builder: (context, controller, _) => IconButton(tooltip: "裝置檢視", onPressed: () => controller.isOpen ? controller.close() : controller.open(), icon: const Icon(Icons.devices_outlined)));
+  Widget _qatModeMenu() => RibbonPopup(
+        menuChildren: [
+          MenuItemButton(
+            onPressed: () => setState(
+              () => _personalization = const RibbonPersonalization(),
+            ),
+            child: const Text("使用程式預設 QAT"),
+          ),
+          MenuItemButton(
+            onPressed: () => setState(
+              () => _personalization = _personalization.copyWith(
+                quickAccessCustomized: true,
+                quickAccessCommandIds: const [],
+              ),
+            ),
+            child: const Text("清空 QAT"),
+          ),
+        ],
+        builder: (context, controller, _) => IconButton(
+          tooltip: "QAT 模式",
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          icon: const Icon(Icons.more_horiz),
+        ),
+      );
+
+  Widget _devicePreviewMenu() => RibbonPopup(
+        menuChildren: [1200, 820, 390]
+            .map(
+              (width) => MenuItemButton(
+                onPressed: () =>
+                    setState(() => _previewWidth = width.toDouble()),
+                child: Text(
+                  width == 1200 ? "桌面" : width == 820 ? "平板" : "手機",
+                ),
+              ),
+            )
+            .toList(),
+        builder: (context, controller, _) => IconButton(
+          tooltip: "裝置檢視",
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          icon: const Icon(Icons.devices_outlined),
+        ),
+      );
 }

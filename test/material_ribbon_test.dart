@@ -5,6 +5,28 @@ import "package:flutter_test/flutter_test.dart";
 import "package:material_ribbon/material_ribbon.dart";
 
 void main() {
+  testWidgets('RibbonPopup provides a reusable standard popup surface', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: RibbonPopup(
+          menuChildren: const [SizedBox(width: 120, child: Text('Popup content'))],
+          builder: (context, controller, child) => TextButton(
+            onPressed: controller.open,
+            child: const Text('Open popup'),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open popup'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Popup content'), findsOneWidget);
+    final anchor = tester.widget<MenuAnchor>(find.byType(MenuAnchor));
+    expect(anchor.clipBehavior, Clip.antiAlias);
+    expect(anchor.style?.elevation?.resolve(<WidgetState>{}), 4);
+  });
+
   testWidgets('RibbonCol stacks up to three children and RibbonRowGrid wraps after three columns', (tester) async {
     await tester.pumpWidget(const MaterialApp(
       home: Scaffold(
@@ -43,13 +65,14 @@ void main() {
         greaterThan(tester.getTopLeft(find.byKey(const ValueKey('row-1'))).dy));
   });
 
-  test('RibbonCol rejects more than three children', () {
-    expect(
-      () => RibbonCol(
-        children: const [SizedBox(), SizedBox(), SizedBox(), SizedBox()],
+  testWidgets('RibbonCol rejects more than three children', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: RibbonCol(
+        children: [SizedBox(), SizedBox(), SizedBox(), SizedBox()],
       ),
-      throwsAssertionError,
-    );
+    ));
+
+    expect(tester.takeException(), isAssertionError);
   });
 
   testWidgets('gallery and large controls use proportional heights', (tester) async {

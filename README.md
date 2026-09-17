@@ -160,7 +160,7 @@ RibbonChip(
 
 ## Ribbon controls and galleries
 
-`RibbonGroup.controls` accepts any widget. The package includes compact, controlled widgets intended for this area: `RibbonGallery`, `RibbonFeaturedGallery`, `RibbonColorPicker`, `RibbonComboBox`, `RibbonFontPicker`, `RibbonTextBox`, and `RibbonSpinBox`.
+`RibbonGroup.controls` accepts any widget. The package includes compact, controlled widgets intended for this area: `RibbonGallery`, `RibbonFeaturedGallery`, `RibbonColorPicker`, `RibbonComboBox`, `RibbonFontPicker`, `RibbonTextBox`, and `RibbonSpinBox`. Use `RibbonPopup` when a custom ribbon control needs the same popup surface and dismissal behaviour as the built-in galleries and pickers.
 
 For a gallery, `onPreview` is called while a pointer enters a cell and `onPreviewEnd` is called when it leaves the gallery. This lets an editor show a temporary preview and restore the committed value afterwards.
 
