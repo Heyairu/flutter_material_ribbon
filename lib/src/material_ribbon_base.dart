@@ -1123,6 +1123,94 @@ class RibbonHorizontalScrollView extends StatefulWidget {
   final List<Widget> children; final EdgeInsetsGeometry? padding; final double scrollbarPadding;
   @override State<RibbonHorizontalScrollView> createState() => _RibbonHorizontalScrollViewState();
 }
+
+/// A compact vertical control stack for use inside a [RibbonGroup].
+///
+/// Children are arranged from top to bottom. A ribbon column intentionally
+/// accepts no more than three children, matching the maximum command-row
+/// count supported by [RibbonGroup].
+class RibbonCol extends StatelessWidget {
+  const RibbonCol({
+    super.key,
+    required this.children,
+    this.spacing = 4,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  }) : assert(children.length <= maxChildren),
+       assert(spacing >= 0);
+
+  static const int maxChildren = 3;
+
+  final List<Widget> children;
+  final double spacing;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: crossAxisAlignment,
+    children: [
+      for (var index = 0; index < children.length; index++) ...[
+        if (index > 0) SizedBox(height: spacing),
+        children[index],
+      ],
+    ],
+  );
+}
+
+/// A compact control grid for use inside a [RibbonGroup].
+///
+/// Children are arranged from left to right in left-to-right locales, with at
+/// most three children per row. Additional children are placed on the next
+/// row.
+class RibbonRowGrid extends StatelessWidget {
+  const RibbonRowGrid({
+    super.key,
+    required this.children,
+    this.spacing = 4,
+    this.runSpacing = 4,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  }) : assert(spacing >= 0),
+       assert(runSpacing >= 0);
+
+  static const int maxColumns = 3;
+
+  final List<Widget> children;
+  final double spacing;
+  final double runSpacing;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <List<Widget>>[];
+    for (var index = 0; index < children.length; index += maxColumns) {
+      final end = (index + maxColumns).clamp(0, children.length).toInt();
+      rows.add(children.sublist(index, end));
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+          if (rowIndex > 0) SizedBox(height: runSpacing),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: crossAxisAlignment,
+            children: [
+              for (var columnIndex = 0;
+                  columnIndex < rows[rowIndex].length;
+                  columnIndex++) ...[
+                if (columnIndex > 0) SizedBox(width: spacing),
+                rows[rowIndex][columnIndex],
+              ],
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _RibbonHorizontalScrollViewState extends State<RibbonHorizontalScrollView> {
   final _controller = ScrollController();
   void _handle(PointerSignalEvent event) { if (event is! PointerScrollEvent || !_controller.hasClients) return; final p = _controller.position; _controller.jumpTo((_controller.offset + event.scrollDelta.dy).clamp(p.minScrollExtent, p.maxScrollExtent).toDouble()); }

@@ -138,6 +138,13 @@ In compact mode, the ribbon uses `compactCommands` when configured. Otherwise it
 
 A horizontally scrolling `ListView` with a visible scrollbar. It accepts required `children`, optional `padding`, and `scrollbarPadding`. Pointer wheel movement is translated into horizontal scrolling.
 
+### `RibbonCol` and `RibbonRowGrid`
+
+Compact composition helpers for `RibbonGroup.controls`.
+
+- `RibbonCol` arranges required `children` from top to bottom. It accepts at most three children, matching the maximum `RibbonGroup.rows` value. `spacing` defaults to `4` and `crossAxisAlignment` defaults to `CrossAxisAlignment.center`.
+- `RibbonRowGrid` arranges required `children` from left to right in left-to-right locales, with at most three children per row. Further children are placed on the next row. `spacing` and `runSpacing` default to `4`; `crossAxisAlignment` defaults to `CrossAxisAlignment.center`.
+
 ### `RibbonCommandPalette`
 
 A Material `SearchAnchor` that filters required `commands` against a command's label and optional description. It requires the current `RibbonContext`, excludes disabled or busy commands, and invokes the selected command.

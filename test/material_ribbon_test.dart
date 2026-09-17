@@ -5,6 +5,53 @@ import "package:flutter_test/flutter_test.dart";
 import "package:material_ribbon/material_ribbon.dart";
 
 void main() {
+  testWidgets('RibbonCol stacks up to three children and RibbonRowGrid wraps after three columns', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RibbonCol(
+              children: [
+                SizedBox(key: ValueKey('col-1'), width: 10, height: 10),
+                SizedBox(key: ValueKey('col-2'), width: 10, height: 10),
+                SizedBox(key: ValueKey('col-3'), width: 10, height: 10),
+              ],
+            ),
+            RibbonRowGrid(
+              children: [
+                SizedBox(key: ValueKey('row-1'), width: 10, height: 10),
+                SizedBox(key: ValueKey('row-2'), width: 10, height: 10),
+                SizedBox(key: ValueKey('row-3'), width: 10, height: 10),
+                SizedBox(key: ValueKey('row-4'), width: 10, height: 10),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ));
+
+    expect(tester.getTopLeft(find.byKey(const ValueKey('col-2'))).dy,
+        greaterThan(tester.getTopLeft(find.byKey(const ValueKey('col-1'))).dy));
+    expect(tester.getTopLeft(find.byKey(const ValueKey('col-3'))).dy,
+        greaterThan(tester.getTopLeft(find.byKey(const ValueKey('col-2'))).dy));
+    expect(tester.getTopLeft(find.byKey(const ValueKey('row-2'))).dx,
+        greaterThan(tester.getTopLeft(find.byKey(const ValueKey('row-1'))).dx));
+    expect(tester.getTopLeft(find.byKey(const ValueKey('row-3'))).dx,
+        greaterThan(tester.getTopLeft(find.byKey(const ValueKey('row-2'))).dx));
+    expect(tester.getTopLeft(find.byKey(const ValueKey('row-4'))).dy,
+        greaterThan(tester.getTopLeft(find.byKey(const ValueKey('row-1'))).dy));
+  });
+
+  test('RibbonCol rejects more than three children', () {
+    expect(
+      () => RibbonCol(
+        children: const [SizedBox(), SizedBox(), SizedBox(), SizedBox()],
+      ),
+      throwsAssertionError,
+    );
+  });
+
   testWidgets('gallery and large controls use proportional heights', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: MaterialRibbon(
       context: const RibbonContext(),
