@@ -144,9 +144,23 @@ RibbonTab(
 )
 ```
 
+## Backstage navigation chips
+
+`RibbonChip` is a controlled, selectable button for a Backstage-style navigation rail or settings pane. Keep the selected destination in the host, then use `onSelected` to request a new destination. It can also run a normal action with `onPressed`, and exposes hover, focus, long-press, tooltip, and `ButtonStyle` customisation.
+
+```dart
+RibbonChip(
+  label: '列印',
+  icon: const Icon(Icons.print_outlined),
+  selected: activeBackstagePage == 'print',
+  onSelected: (_) => setState(() => activeBackstagePage = 'print'),
+  tooltip: '列印文件',
+)
+```
+
 ## Ribbon controls and galleries
 
-`RibbonGroup.controls` accepts any widget. The package includes compact, controlled widgets intended for this area: `RibbonGallery`, `RibbonColorPicker`, `RibbonComboBox`, `RibbonFontPicker`, `RibbonTextBox`, and `RibbonSpinBox`.
+`RibbonGroup.controls` accepts any widget. The package includes compact, controlled widgets intended for this area: `RibbonGallery`, `RibbonFeaturedGallery`, `RibbonColorPicker`, `RibbonComboBox`, `RibbonFontPicker`, `RibbonTextBox`, and `RibbonSpinBox`.
 
 For a gallery, `onPreview` is called while a pointer enters a cell and `onPreviewEnd` is called when it leaves the gallery. This lets an editor show a temporary preview and restore the committed value afterwards.
 
@@ -163,11 +177,46 @@ RibbonColorPicker(
 )
 ```
 
+Use `RibbonFeaturedGallery` when a few high-frequency values should remain
+visible in the ribbon while the expansion button opens every available value:
+
+```dart
+RibbonFeaturedGallery<String>(
+  items: styleItems,
+  featuredValues: const ['Normal', 'Heading 1', 'Quote'],
+  selectedValue: selectedStyle,
+  onSelected: (value) => setState(() => selectedStyle = value),
+)
+```
+
 ## Quick Access Toolbar and personalization
 
 Pass `quickAccessCommands` to set the default Quick Access Toolbar. The older `leadingCommands` property remains supported as an alias. To allow users to customize the toolbar, provide `onPersonalizationChanged`, a `RibbonPersonalizationStore`, or both. The store is application-owned, so it can use shared preferences, a database, or another persistence mechanism.
 
 `RibbonPersonalization` stores Quick Access command IDs, tab ordering, and hidden tab IDs. Command IDs and tab IDs should therefore be stable and unique.
+
+`quickAccessCommands` is always the program-defined default. To represent a user deliberately removing every QAT command, persist `RibbonPersonalization(quickAccessCustomized: true)`: an empty command-ID list then renders a genuinely empty QAT instead of falling back to the default.
+
+Set `showCustomizationButton: true` to expose a built-in dialog where people can choose Quick Access commands, show or hide tabs, and reorder tabs. The result is sent through the same personalization callback or store.
+
+## Keyboard and accessibility
+
+The ribbon is a focus traversal group with semantic labels for tabs, groups, and the active command surface. Use `Alt` or `F10` to open header KeyTips, choose a tab's key tip to reveal only that tab's command KeyTips, and press `Esc` to step back. `Left`/`Right`, `Ctrl+Tab`, `Home`, and `End` change tabs.
+
+For app-specific bindings, provide `RibbonShortcut` values. This keeps accelerators typed and platform-aware:
+
+```dart
+MaterialRibbon(
+  // ...
+  shortcuts: [
+    RibbonShortcut(
+      id: 'save-document',
+      activator: const SingleActivator(LogicalKeyboardKey.keyS, control: true),
+      onInvoke: saveDocument,
+    ),
+  ],
+)
+```
 
 ## Optional command palette
 

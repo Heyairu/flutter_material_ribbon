@@ -48,6 +48,10 @@ Describes one executable ribbon operation. `id`, `label`, `icon`, and `onInvoke`
 
 `enabledFor`, `busyFor`, `stateFor`, and `disabledReasonFor` expose the resolved values for a supplied context.
 
+### `RibbonChip`
+
+A compact, controlled selectable button for Backstage navigation, settings panes, and other command lists. It requires either `label` or `child`. Use `selected` with `onSelected` for navigation state, `onPressed` for a normal action, or both when an item should select and act. `icon`, `tooltip`, `semanticLabel`, `style`, `padding`, `minimumSize`, and `alignment` control presentation. It also forwards `onLongPress`, `onHover`, `onFocusChange`, `focusNode`, and `autofocus` for application-specific behaviour.
+
 ### `RibbonGroup`
 
 Groups commands and arbitrary controls under a label.
@@ -86,7 +90,7 @@ The top-level ribbon widget. `tabs` and `context` are required.
 | --- | --- | --- | --- |
 | `tabs` | `List<RibbonTab>` | required | Ribbon tabs. |
 | `context` | `RibbonContext` | required | Current application/editor state. |
-| `height` | `double` | `190` | Expanded desktop ribbon height. |
+| `height` | `double` | `210` | Expanded desktop ribbon height. |
 | `collapsed` | `bool` | `false` | Whether only the 48px header is shown. |
 | `onCollapsedChanged` | `ValueChanged<bool>?` | `null` | Receives collapse toggle requests. |
 | `compact` | `bool?` | `null` | Forces compact or desktop layout; `null` switches below 720px. |
@@ -99,12 +103,16 @@ The top-level ribbon widget. `tabs` and `context` are required.
 | `quickAccessLimit` | `int` | `4` | Commands shown before toolbar overflow. |
 | `quickAccessCollapsed` | `bool` | `false` | Hides Quick Access commands when `true`. |
 | `onQuickAccessCollapsedChanged` | `ValueChanged<bool>?` | `null` | Receives Quick Access visibility toggle requests. |
+| `shortcuts` | `List<RibbonShortcut>` | `[]` | Application-defined keyboard bindings active while focus is in the ribbon. |
+| `showCustomizationButton` | `bool` | `false` | Shows the full Ribbon customization dialog in the header. |
+| `customizationDialogTitle` | `String` | `自訂功能區` | Dialog title and customization button tooltip. |
 
 Keyboard handling:
 
 - `Ctrl+F1` requests a collapsed-state toggle.
-- `Alt` or `F10` toggles key-tip overlays.
-- With key tips visible, a matching tab key tip selects its tab; a matching enabled, idle command key tip invokes that command.
+- `Alt` or `F10` opens header key tips. Choosing a tab key tip then opens command key tips for that tab; `Esc` returns to header tips, then closes them.
+- `Left`/`Right`, `Ctrl+Tab`/`Ctrl+Shift+Tab`, and `Home`/`End` switch tabs.
+- A matching enabled, idle command key tip invokes that command. Command key tips never invoke commands from an inactive tab.
 
 In compact mode, the ribbon uses `compactCommands`, then `mobileCommands`, then non-medium commands from all tab groups. The command palette is not shown.
 
@@ -126,9 +134,15 @@ All controls below are controlled widgets: the host owns the value and updates i
 
 ### `RibbonGallery<T>` and `RibbonGalleryItem<T>`
 
-`RibbonGallery<T>` renders a fixed grid of `RibbonGalleryItem<T>` values. It requires `items` and `onSelected`; optional properties are `selectedValue`, `onPreview`, `onPreviewEnd`, `columns` (default `4`), `cellSize` (default `72 × 56`), `showLabels` (default `true`), `enabled` (default `true`), and `padding` (default `EdgeInsets.all(6)`). `columns` must be greater than zero.
+`RibbonGallery<T>` renders a fixed grid of `RibbonGalleryItem<T>` values. It requires `items` and `onSelected`; optional properties are `selectedValue`, `onPreview`, `onPreviewEnd`, `columns` (default `4`), `cellSize` (default `72 × 60`), `showLabels` (default `true`), `enabled` (default `true`), and `padding` (default `EdgeInsets.all(6)`). `columns` must be greater than zero.
 
 Each item requires `value` and `label`, and can supply `icon`, `preview`, `tooltip`, and an item-specific `onSelected` callback. `preview` takes precedence over `icon`.
+
+### `RibbonFeaturedGallery<T>`
+
+The default command button height is 40px, including buttons that open a gallery. Gallery cells are 60px tall. Large command buttons are 120px tall with 40px icons; the featured gallery is also 120px tall including its border. Group content is aligned to the top of the 120px command area. Compact command buttons remain 40px tall.
+
+`RibbonFeaturedGallery<T>` composes a 120px-high container with a top-aligned 3-column grid of common 60px-high gallery items and an expansion button that opens the full `RibbonGallery<T>`. The default grid displays up to six featured items in two rows. It requires `items`, `featuredValues`, and `onSelected`. `featuredValues` controls the visible items and order; values absent from `items` are ignored. Optional properties are `selectedValue`, `onPreview`, `onPreviewEnd`, `columns` (default `4`), `featuredCols` (default `3`), `featuredCellSize` (default `68 × 60`), `galleryCellSize` (default `72 × 60`), `galleryWidth` (default `312`), `moreTooltip` (default `More items`), and `enabled` (default `true`).
 
 ### `RibbonComboBox<T>` and `RibbonComboBoxItem<T>`
 
@@ -159,6 +173,7 @@ Immutable preferences used by `MaterialRibbon`.
 | Property | Type | Default |
 | --- | --- | --- |
 | `quickAccessCommandIds` | `List<String>` | `[]` |
+| `quickAccessCustomized` | `bool` | `false` | When `false`, uses program defaults; when `true`, an empty ID list is a deliberately empty QAT. |
 | `tabOrder` | `List<String>` | `[]` |
 | `hiddenTabIds` | `Set<String>` | `{}` |
 
@@ -176,3 +191,11 @@ abstract class RibbonPersonalizationStore {
 ```
 
 When no controlled `personalization` is supplied, `MaterialRibbon` loads from the store once and saves changes after Quick Access customization.
+
+### `RibbonShortcut`
+
+Defines a keyboard binding owned by the application. Supply an `id`, a Flutter `ShortcutActivator` (normally `SingleActivator`), and `onInvoke`. `isEnabled` can disable the binding for the current `RibbonContext`. Pass bindings through `MaterialRibbon.shortcuts`.
+
+### `RibbonCustomizationPanel`
+
+A controlled UI for choosing Quick Access commands, hiding or showing tabs, and moving tabs up or down. It requires `tabs`, `commands`, `value`, and `onChanged`. Set `MaterialRibbon.showCustomizationButton` to `true` to expose the same panel in a dialog that automatically calls the ribbon's personalization callback/store.
