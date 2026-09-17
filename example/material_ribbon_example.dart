@@ -25,7 +25,7 @@ class RibbonTemplatePage extends StatefulWidget {
 }
 
 class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
-  bool _collapsed = false, _compact = false, _showPalette = true;
+  bool _collapsed = false, _compact = false, _showPalette = true, _showBackstage = false;
   bool _bold = false, _italic = false, _underline = false, _busy = false;
   double _previewWidth = 1200, _fontSize = 12;
   Color _committedColor = Colors.black, _previewColor = Colors.black;
@@ -104,19 +104,31 @@ class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
       ),
       body: Center(child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: _previewWidth),
-        child: Column(children: [
-          MaterialRibbon(
-            tabs: tabs, context: _context, compact: _compact, collapsed: _collapsed,
-            onCollapsedChanged: (value) => setState(() => _collapsed = value),
-            quickAccessCommands: [save, undo, redo], personalization: _personalization,
-            onPersonalizationChanged: (value) => setState(() => _personalization = value),
-            showCustomizationButton: true,
-            shortcuts: [RibbonShortcut(id: "save-document", activator: const SingleActivator(LogicalKeyboardKey.keyS, control: true), onInvoke: _simulateSave, description: "儲存文件")],
-            commandPalette: _showPalette ? RibbonCommandPalette(commands: allCommands, context: _context) : null,
-          ),
-          Expanded(child: _editorPreview()),
-          _statusBar(),
-        ]),
+        child: _showBackstage
+            ? _backstagePreview()
+            : Column(children: [
+                MaterialRibbon(
+                  tabs: tabs, context: _context, compact: _compact, collapsed: _collapsed,
+                  onCollapsedChanged: (value) => setState(() => _collapsed = value),
+                  quickAccessCommands: [save, undo, redo], personalization: _personalization,
+                  onPersonalizationChanged: (value) => setState(() => _personalization = value),
+                  headerActions: [
+                    RibbonActionChip(
+                      label: "開啟 Backstage",
+                      icon: const Icon(Icons.description_outlined, size: 18),
+                      onPressed: () => setState(() {
+                        _showBackstage = true;
+                        _status = "已開啟 Backstage";
+                      }),
+                    ),
+                  ],
+                  showCustomizationButton: true,
+                  shortcuts: [RibbonShortcut(id: "save-document", activator: const SingleActivator(LogicalKeyboardKey.keyS, control: true), onInvoke: _simulateSave, description: "儲存文件")],
+                  commandPalette: _showPalette ? RibbonCommandPalette(commands: allCommands, context: _context) : null,
+                ),
+                Expanded(child: _editorPreview()),
+                _statusBar(),
+              ]),
       )),
     );
   }
@@ -166,7 +178,7 @@ class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
         // the controlled-selection variant that updates the document preview.
         RibbonGroup(label: "樣式選單", rows: 2, commands: [styleGallery]),
         RibbonGroup(label: "樣式", rows: 2, controls: [_originalStyleControls()]),
-      ], compactCommands: [paste, bold, bullets], mobileCommands: [paste, bold]),
+      ], compactCommands: [paste, bold, bullets]),
       RibbonTab(id: "insert", label: "插入", keyTip: "N", groups: [
         RibbonGroup(label: "插圖", commands: [picture, _command("table", "表格", Icons.table_chart_outlined, size: RibbonCommandSize.large)]),
         RibbonGroup(label: "連結", commands: [_command("link", "連結", Icons.link_outlined), _command("comment", "註解", Icons.comment_outlined)]),
@@ -236,15 +248,29 @@ class _RibbonTemplatePageState extends State<RibbonTemplatePage> {
           ))
       .toList();
 
-  Widget _editorPreview() => Center(child: Card(child: SizedBox(width: 700, height: 430, child: Row(children: [
-        SizedBox(width: 150, child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text("Backstage", style: Theme.of(context).textTheme.titleSmall), const SizedBox(height: 8),
-          for (final page in const ["資訊", "開啟", "列印"])
-            RibbonChip(label: page, icon: Icon(page == "資訊" ? Icons.info_outline : page == "開啟" ? Icons.folder_open_outlined : Icons.print_outlined), selected: _backstagePage == page, onSelected: (_) => setState(() { _backstagePage = page; _status = "Backstage：$page"; })),
-        ]))),
+  Widget _editorPreview() => Center(child: Card(child: SizedBox(width: 700, height: 430, child: Padding(
+        padding: const EdgeInsets.all(48),
+        child: Text("文件編輯器模板\n\n此範例可直接複製作為專案的 Ribbon 起點。\n\n• Action、Toggle、Menu、Split、Gallery 命令\n• Font、SpinBox、Color、ComboBox、TextBox 控制項\n• QAT、個人化、命令搜尋、KeyTips\n• 以「檔案」Chip 進入 Backstage\n\n樣式：$_style  ·  對齊：$_paragraphAlignment  ·  行距：$_lineSpacing", style: TextStyle(fontFamily: _fontFamily, fontSize: _fontSize, color: _previewColor, fontWeight: _bold ? FontWeight.bold : FontWeight.normal, fontStyle: _italic ? FontStyle.italic : FontStyle.normal, decoration: _underline ? TextDecoration.underline : null)),
+      ))));
+
+  Widget _backstagePreview() => Row(children: [
+        SizedBox(width: 190, child: ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text("Backstage", style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            for (final page in const ["資訊", "開啟", "列印"])
+              RibbonChip(label: page, icon: Icon(page == "資訊" ? Icons.info_outline : page == "開啟" ? Icons.folder_open_outlined : Icons.print_outlined), selected: _backstagePage == page, onSelected: (_) => setState(() { _backstagePage = page; _status = "Backstage：$page"; })),
+            const Spacer(),
+            RibbonChip(label: "返回文件", icon: const Icon(Icons.arrow_back), onPressed: () => setState(() { _showBackstage = false; _status = "已返回文件"; })),
+          ]),
+        ))),
         const VerticalDivider(width: 1),
-        Expanded(child: Padding(padding: const EdgeInsets.all(48), child: Text("文件編輯器模板\n\n此範例可直接複製作為專案的 Ribbon 起點。\n\n• Action、Toggle、Menu、Split、Gallery 命令\n• Font、SpinBox、Color、ComboBox、TextBox 控制項\n• QAT、個人化、命令搜尋、KeyTips、快捷鍵\n• Backstage Chip 與依選取內容顯示的頁籤\n\n樣式：$_style  ·  對齊：$_paragraphAlignment  ·  行距：$_lineSpacing", style: TextStyle(fontFamily: _fontFamily, fontSize: _fontSize, color: _previewColor, fontWeight: _bold ? FontWeight.bold : FontWeight.normal, fontStyle: _italic ? FontStyle.italic : FontStyle.normal, decoration: _underline ? TextDecoration.underline : null))),
-      )]))));
+        Expanded(child: Center(child: Card(child: SizedBox(width: 560, child: Padding(
+          padding: const EdgeInsets.all(36),
+          child: Text("$_backstagePage\n\n這裡是由「檔案」RibbonChip 觸發的 Backstage 工作區。\n\n可在此放置文件資訊、開啟／另存與列印等全文件層級操作。", style: Theme.of(context).textTheme.titleLarge),
+        ))))),
+      ]);
 
   Widget _statusBar() => Padding(padding: const EdgeInsets.all(10), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
         Text(_status), const SizedBox(width: 24),

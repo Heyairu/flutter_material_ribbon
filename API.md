@@ -22,6 +22,7 @@ Immutable application state passed to the ribbon when it evaluates command and t
 | `RibbonCommandSize` | `small`, `medium`, `large` | Chooses the command button layout. Large commands span the group command height. |
 | `RibbonCommandType` | `action`, `toggle`, `menu`, `split`, `gallery` | Chooses the command interaction pattern. |
 | `RibbonCheckState` | `unchecked`, `checked`, `mixed` | State returned by a toggle command. The checked state receives selected styling. |
+| `RibbonChipSelectionBehavior` | `toggle`, `select`, `deselect`, `preserve` | Determines the value sent to a chip's `onSelected` callback. |
 
 ### `RibbonCommand`
 
@@ -50,7 +51,21 @@ Describes one executable ribbon operation. `id`, `label`, `icon`, and `onInvoke`
 
 ### `RibbonChip`
 
-A compact, controlled selectable button for Backstage navigation, settings panes, and other command lists. It requires either `label` or `child`. Use `selected` with `onSelected` for navigation state, `onPressed` for a normal action, or both when an item should select and act. `icon`, `tooltip`, `semanticLabel`, `style`, `padding`, `minimumSize`, and `alignment` control presentation. It also forwards `onLongPress`, `onHover`, `onFocusChange`, `focusNode`, and `autofocus` for application-specific behaviour.
+A compact, controlled selectable button for Backstage navigation, settings panes, and other command lists. It requires either `label` or `child`. Use `selected` with `onSelected` for navigation state, `onPressed` for a normal action, or both when an item should select and act. `selectionBehavior` controls the value supplied to `onSelected`: it toggles by default, while `select`, `deselect`, and `preserve` let the host own navigation and action semantics independently. `icon`, `tooltip`, `semanticLabel`, `style`, `padding`, `minimumSize`, and `alignment` control presentation. It also forwards `onLongPress`, `onHover`, `onFocusChange`, `focusNode`, and `autofocus` for application-specific behaviour.
+
+### `RibbonActionChip`
+
+A Material `ActionChip` using the shared Chip theme's shape (a rounded rectangle in Material 3), with custom `onPressed` behavior. Accepts `label`, `icon`, `tooltip`, `enabled`, `backgroundColor`, `labelStyle`, `focusNode`, and `autofocus`. Add it to `MaterialRibbon.headerActions` to scroll alongside the tabs, or use it directly in `RibbonHorizontalScrollView.children`.
+
+```dart
+headerActions: [
+  RibbonActionChip(
+    label: 'Backstage',
+    icon: const Icon(Icons.description_outlined, size: 18),
+    onPressed: openBackstage,
+  ),
+],
+```
 
 ### `RibbonGroup`
 
@@ -76,8 +91,7 @@ Defines one ribbon tab.
 | `groups` | `List<RibbonGroup>` | required | Groups displayed for the tab. |
 | `icon` | `IconData?` | `null` | Optional tab icon. |
 | `isVisible` | `bool Function(RibbonContext)?` | `null` | Contextual visibility predicate; defaults to visible. |
-| `mobileCommands` | `List<RibbonCommand>` | `[]` | Compact-layout source when `compactCommands` is empty. |
-| `compactCommands` | `List<RibbonCommand>` | `[]` | Preferred compact-layout command source. |
+| `compactCommands` | `List<RibbonCommand>` | `[]` | Optional compact-layout commands. When empty, tab-group commands are used; medium commands are rendered as small buttons. |
 | `keyTip` | `String?` | `null` | Alt/F10 key-tip label. |
 
 ## Main widgets
@@ -106,6 +120,10 @@ The top-level ribbon widget. `tabs` and `context` are required.
 | `shortcuts` | `List<RibbonShortcut>` | `[]` | Application-defined keyboard bindings active while focus is in the ribbon. |
 | `showCustomizationButton` | `bool` | `false` | Shows the full Ribbon customization dialog in the header. |
 | `customizationDialogTitle` | `String` | `自訂功能區` | Dialog title and customization button tooltip. |
+| `onBackstagePressed` | `VoidCallback?` | `null` | Shows a Backstage chip in the header and receives its press. |
+| `backstageLabel` | `String` | `Backstage` | Header Backstage chip label and tooltip. |
+| `backstageIcon` | `IconData` | document icon | Header Backstage chip icon. |
+| `headerActions` | `List<Widget>` | `[]` | Custom actions preceding the tabs inside their shared horizontal scroll area. |
 
 Keyboard handling:
 
@@ -114,7 +132,7 @@ Keyboard handling:
 - `Left`/`Right`, `Ctrl+Tab`/`Ctrl+Shift+Tab`, and `Home`/`End` switch tabs.
 - A matching enabled, idle command key tip invokes that command. Command key tips never invoke commands from an inactive tab.
 
-In compact mode, the ribbon uses `compactCommands`, then `mobileCommands`, then non-medium commands from all tab groups. The command palette is not shown.
+In compact mode, the ribbon uses `compactCommands` when configured. Otherwise it derives the layout from the tab groups. Medium commands are rendered as small buttons. The command palette is not shown.
 
 ### `RibbonHorizontalScrollView`
 

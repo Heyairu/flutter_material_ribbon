@@ -156,6 +156,29 @@ void main() {
     expect(find.byTooltip('儲存'), findsNothing);
   });
 
+  testWidgets('renders a Backstage chip inside the ribbon tab scroll area', (tester) async {
+    var opened = false;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: MaterialRibbon(
+      context: const RibbonContext(),
+      onBackstagePressed: () => opened = true,
+      backstageLabel: '開啟 Backstage',
+      tabs: const [RibbonTab(id: 'home', label: '首頁', groups: [])],
+    ))));
+
+    final chip = find.bySemanticsLabel('開啟 Backstage');
+    expect(chip, findsOneWidget);
+    expect(tester.getCenter(chip).dy, lessThan(48));
+    expect(
+      find.ancestor(
+        of: chip,
+        matching: find.byType(RibbonHorizontalScrollView),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(chip);
+    expect(opened, isTrue);
+  });
+
   testWidgets('customization panel changes visible tabs and quick access commands', (tester) async {
     RibbonPersonalization value = const RibbonPersonalization();
     final tabs = const [
@@ -255,6 +278,19 @@ void main() {
     ))));
     await tester.tap(find.text('資訊'));
     expect(called, isFalse);
+  });
+
+  testWidgets('chip selection behaviour is controlled by the host', (tester) async {
+    bool? selected;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: RibbonChip(
+      label: 'Open Backstage',
+      selected: false,
+      selectionBehavior: RibbonChipSelectionBehavior.preserve,
+      onSelected: (value) => selected = value,
+    ))));
+
+    await tester.tap(find.text('Open Backstage'));
+    expect(selected, isFalse);
   });
 
   testWidgets('font and size fields have matching borders', (tester) async {
@@ -490,5 +526,51 @@ void main() {
     );
     expect(find.byTooltip('更多選項'), findsOneWidget);
     expect(find.bySemanticsLabel('粗體'), findsOneWidget);
+  });
+
+  testWidgets('compact mode uses explicitly configured compact commands', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: MaterialRibbon(
+      compact: true,
+      context: const RibbonContext(),
+      tabs: [RibbonTab(
+        id: 'home',
+        label: 'Home',
+        compactCommands: [
+          RibbonCommand(id: 'compact', label: 'Compact', icon: Icons.compress, onInvoke: () {}),
+        ],
+        groups: [RibbonGroup(label: 'Source', commands: [
+          RibbonCommand(id: 'large', label: 'Large', icon: Icons.add, size: RibbonCommandSize.large, onInvoke: () {}),
+          RibbonCommand(id: 'small', label: 'Small', icon: Icons.remove, size: RibbonCommandSize.small, onInvoke: () {}),
+        ])],
+      )],
+    ))));
+
+    expect(find.bySemanticsLabel('Compact'), findsOneWidget);
+    expect(find.text('Large'), findsNothing);
+    expect(find.text('Small'), findsNothing);
+  });
+
+  testWidgets('compact mode derives commands and shrinks medium buttons when unconfigured', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: MaterialRibbon(
+      compact: true,
+      context: const RibbonContext(),
+      tabs: [RibbonTab(id: 'home', label: 'Home', groups: [RibbonGroup(label: 'Source', commands: [
+        RibbonCommand(id: 'large', label: 'Large', icon: Icons.add, size: RibbonCommandSize.large, onInvoke: () {}),
+        RibbonCommand(id: 'medium', label: 'Medium', icon: Icons.drag_handle, onInvoke: () {}),
+        RibbonCommand(id: 'small', label: 'Small', icon: Icons.remove, size: RibbonCommandSize.small, onInvoke: () {}),
+      ])])],
+    ))));
+
+    expect(find.text('Large'), findsOneWidget);
+    expect(find.bySemanticsLabel('Small'), findsOneWidget);
+    expect(find.bySemanticsLabel('Medium'), findsOneWidget);
+    expect(find.text('Medium'), findsNothing);
+    expect(
+      find.ancestor(
+        of: find.byIcon(Icons.drag_handle),
+        matching: find.byType(IconButton),
+      ),
+      findsOneWidget,
+    );
   });
 }

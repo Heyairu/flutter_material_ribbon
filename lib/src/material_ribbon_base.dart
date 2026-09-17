@@ -26,6 +26,11 @@ class RibbonContext {
 enum RibbonCommandSize { small, medium, large }
 enum RibbonCommandType { action, toggle, menu, split, gallery }
 enum RibbonCheckState { unchecked, checked, mixed }
+/// Controls the value supplied to [RibbonChip.onSelected] after a press.
+///
+/// Use [preserve] when a chip represents an action rather than a selectable
+/// destination; use [select] or [deselect] for host-controlled navigation.
+enum RibbonChipSelectionBehavior { toggle, select, deselect, preserve }
 enum _KeyTipLevel { header, commands }
 
 /// A selectable command chip for navigation surfaces such as a Backstage menu.
@@ -54,6 +59,7 @@ class RibbonChip extends StatelessWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     this.minimumSize = const Size(0, _controlHeight),
     this.alignment = AlignmentDirectional.centerStart,
+    this.selectionBehavior = RibbonChipSelectionBehavior.toggle,
   }) : assert(label != null || child != null, 'Provide either label or child.');
 
   final String? label;
@@ -74,6 +80,14 @@ class RibbonChip extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final Size minimumSize;
   final AlignmentGeometry alignment;
+  final RibbonChipSelectionBehavior selectionBehavior;
+
+  bool get _nextSelected => switch (selectionBehavior) {
+    RibbonChipSelectionBehavior.toggle => !selected,
+    RibbonChipSelectionBehavior.select => true,
+    RibbonChipSelectionBehavior.deselect => false,
+    RibbonChipSelectionBehavior.preserve => selected,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +96,7 @@ class RibbonChip extends StatelessWidget {
       onPressed: enabled && (onPressed != null || onSelected != null)
           ? () {
               onPressed?.call();
-              onSelected?.call(!selected);
+              onSelected?.call(_nextSelected);
             }
           : null,
       onLongPress: enabled ? onLongPress : null,
@@ -122,6 +136,44 @@ class RibbonChip extends StatelessWidget {
     );
     return tooltip == null ? semanticButton : Tooltip(message: tooltip!, child: semanticButton);
   }
+}
+
+/// An action chip using the shared Chip theme and application-owned behavior.
+/// Can be placed in [MaterialRibbon.headerActions] or any scroll view.
+class RibbonActionChip extends StatelessWidget {
+  const RibbonActionChip({
+    super.key, required this.label, this.onPressed, this.icon, this.tooltip,
+    this.enabled = true, this.backgroundColor, this.labelStyle,
+    this.focusNode, this.autofocus = false,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final Widget? icon;
+  final String? tooltip;
+  final bool enabled;
+  final Color? backgroundColor;
+  final TextStyle? labelStyle;
+  final FocusNode? focusNode;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    widthFactor: 1,
+    heightFactor: 1,
+    child: ActionChip(
+      label: Text(label),
+      avatar: icon,
+      onPressed: enabled ? onPressed : null,
+      tooltip: tooltip,
+      backgroundColor: backgroundColor ?? Theme.of(context).colorScheme.secondaryContainer,
+      labelStyle: labelStyle,
+      focusNode: focusNode,
+      autofocus: autofocus,
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+  );
 }
 
 class RibbonGalleryItem<T> {
@@ -608,13 +660,14 @@ class RibbonGroup {
 class RibbonTab {
   const RibbonTab({
     required this.id, required this.label, required this.groups, this.icon,
-    this.isVisible, this.mobileCommands = const [], this.compactCommands = const [], this.keyTip,
+    this.isVisible, this.compactCommands = const [], this.keyTip,
   });
   final String id, label;
   final List<RibbonGroup> groups;
   final IconData? icon;
   final bool Function(RibbonContext)? isVisible;
-  final List<RibbonCommand> mobileCommands;
+  /// Commands shown in compact mode. When empty, commands are derived from
+  /// [groups], with medium commands rendered as small buttons.
   final List<RibbonCommand> compactCommands;
   final String? keyTip;
   bool visibleFor(RibbonContext context) => isVisible?.call(context) ?? true;
@@ -774,6 +827,9 @@ class MaterialRibbon extends StatefulWidget {
     this.commandPalette, this.quickAccessLimit = 4, this.quickAccessCollapsed = false, this.onQuickAccessCollapsedChanged,
     this.shortcuts = const [], this.showCustomizationButton = false,
     this.customizationDialogTitle = '自訂功能區',
+    this.onBackstagePressed, this.backstageLabel = 'Backstage',
+    this.backstageIcon = Icons.description_outlined,
+    this.headerActions = const [],
   });
   final List<RibbonTab> tabs;
   final RibbonContext context;
@@ -798,6 +854,12 @@ class MaterialRibbon extends StatefulWidget {
   /// Adds a dialog for changing Quick Access commands, tab visibility, and order.
   final bool showCustomizationButton;
   final String customizationDialogTitle;
+  /// Shows a Backstage chip in the header when supplied.
+  final VoidCallback? onBackstagePressed;
+  final String backstageLabel;
+  final IconData backstageIcon;
+  /// Custom actions placed before the tabs in their shared horizontal scroll area.
+  final List<Widget> headerActions;
   @override State<MaterialRibbon> createState() => _MaterialRibbonState();
 }
 
@@ -936,27 +998,64 @@ class _MaterialRibbonState extends State<MaterialRibbon> {
             if (_qat.isNotEmpty && (widget.onPersonalizationChanged != null || widget.personalizationStore != null))
               _QatCustomizer(commands: _allCommands, selected: _prefs.quickAccessCommandIds, onChanged: (ids) => _save(_prefs.copyWith(quickAccessCommandIds: ids, quickAccessCustomized: true))),
             if (widget.showCustomizationButton) IconButton(tooltip: widget.customizationDialogTitle, onPressed: _showCustomizationDialog, icon: const Icon(Icons.tune)),
-            Expanded(child: Semantics(
-              container: true,
-              label: '功能區索引標籤。使用左右方向鍵、Home 或 End 切換。',
-              child: RibbonHorizontalScrollView(scrollbarPadding: 0, padding: const EdgeInsets.symmetric(horizontal: 12), children: _visibleTabs.map((tab) => Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: SizedBox(height: _controlHeight, child: _KeyTip(label: tab.keyTip, visible: _keyTipLevel == _KeyTipLevel.header, child: Center(child: ChoiceChip(
-              avatar: tab.icon == null ? null : Icon(tab.icon, size: 18),
-              label: Text(tab.label),
-              selected: tab.id == _selectedTabId,
-              showCheckmark: false,
-              visualDensity: VisualDensity.compact,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: tab.isVisible == null ? null : Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.55),
-              selectedColor: tab.isVisible == null ? null : Theme.of(context).colorScheme.secondaryContainer,
-              onSelected: (_) => setState(() => _selectedTabId = tab.id),
-            )))))).toList()))),
+            Expanded(
+              child: Semantics(
+                container: true,
+                label: '功能區索引標籤。使用左右方向鍵、Home 或 End 切換。',
+                child: RibbonHorizontalScrollView(
+                  scrollbarPadding: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    if (widget.onBackstagePressed != null)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: RibbonActionChip(
+                          label: widget.backstageLabel,
+                          icon: Icon(widget.backstageIcon, size: 18),
+                          onPressed: widget.onBackstagePressed!,
+                        ),
+                      ),
+                    for (final action in widget.headerActions)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: action,
+                      ),
+                    ..._visibleTabs.map(
+                      (tab) => Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 8),
+                        child: SizedBox(
+                          height: _controlHeight,
+                          child: _KeyTip(
+                            label: tab.keyTip,
+                            visible: _keyTipLevel == _KeyTipLevel.header,
+                            child: Center(
+                              child: ChoiceChip(
+                                avatar: tab.icon == null ? null : Icon(tab.icon, size: 18),
+                                label: Text(tab.label),
+                                selected: tab.id == _selectedTabId,
+                                showCheckmark: false,
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: tab.isVisible == null ? null : Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.55),
+                                selectedColor: tab.isVisible == null ? null : Theme.of(context).colorScheme.secondaryContainer,
+                                onSelected: (_) => setState(() => _selectedTabId = tab.id),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             if (!compact && widget.commandPalette != null) SizedBox(width: 260, child: widget.commandPalette!),
             IconButton(tooltip: widget.collapsed ? "展開 Ribbon (Ctrl+F1)" : "收合 Ribbon (Ctrl+F1)", onPressed: widget.onCollapsedChanged == null ? null : () => widget.onCollapsedChanged!(!widget.collapsed), icon: Icon(widget.collapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up)),
           ])),
           if (!widget.collapsed) Expanded(child: Semantics(
             container: true,
             label: '${selected.label} 命令',
-            child: compact ? _MobileActions(tab: selected, context: widget.context, showKeyTips: _keyTipLevel == _KeyTipLevel.commands) : _TabBody(tab: selected, context: widget.context, showKeyTips: _keyTipLevel == _KeyTipLevel.commands),
+            child: compact ? _CompactActions(tab: selected, context: widget.context, showKeyTips: _keyTipLevel == _KeyTipLevel.commands) : _TabBody(tab: selected, context: widget.context, showKeyTips: _keyTipLevel == _KeyTipLevel.commands),
           )),
         ]),
       ));
@@ -1035,11 +1134,19 @@ class _TabBody extends StatelessWidget {
   final RibbonTab tab; final RibbonContext context; final bool showKeyTips;
   @override Widget build(BuildContext buildContext) => RibbonHorizontalScrollView(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), children: List.generate(tab.groups.length, (i) => [Align(alignment: Alignment.center, child: _Group(group: tab.groups[i], context: context, showKeyTips: showKeyTips)), if (i < tab.groups.length - 1) const VerticalDivider(width: 24, indent: 4, endIndent: 4)]).expand((items) => items).toList());
 }
-class _MobileActions extends StatelessWidget {
-  const _MobileActions({required this.tab, required this.context, required this.showKeyTips});
+class _CompactActions extends StatelessWidget {
+  const _CompactActions({required this.tab, required this.context, required this.showKeyTips});
   final RibbonTab tab; final RibbonContext context;
   final bool showKeyTips;
-  @override Widget build(BuildContext buildContext) { final commands = tab.compactCommands.isNotEmpty ? tab.compactCommands : tab.mobileCommands.isNotEmpty ? tab.mobileCommands : tab.groups.expand((group) => group.commands).where((command) => command.size != RibbonCommandSize.medium).toList(); return RibbonHorizontalScrollView(padding: const EdgeInsets.symmetric(horizontal: 8), children: commands.map((command) => Center(child: _KeyTip(label: command.keyTip, visible: showKeyTips, child: _CommandButton(command, context, compact: true)))).toList()); }
+  @override Widget build(BuildContext buildContext) {
+    final commands = tab.compactCommands.isNotEmpty
+        ? tab.compactCommands
+        : tab.groups.expand((group) => group.commands).toList();
+    return RibbonHorizontalScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      children: commands.map((command) => Center(child: _KeyTip(label: command.keyTip, visible: showKeyTips, child: _CommandButton(command, context, compact: true)))).toList(),
+    );
+  }
 }
 class _Group extends StatelessWidget {
   const _Group({required this.group, required this.context, required this.showKeyTips});
@@ -1088,12 +1195,13 @@ class _CommandButton extends StatelessWidget {
   final RibbonCommand command; final RibbonContext context; final bool compact;
   @override Widget build(BuildContext buildContext) {
     final enabled = command.enabledFor(context); final busy = command.busyFor(context); final state = command.stateFor(context);
+    final compactSmall = compact && command.size == RibbonCommandSize.medium;
     final tooltip = [command.label, if (!enabled && command.disabledReasonFor(context) != null) command.disabledReasonFor(context)!, if (command.shortcut != null) command.shortcut!].join("\n");
     final icon = busy ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(command.icon, size: command.size == RibbonCommandSize.large && !compact ? _largeIconSize : 20);
     void action() { if (enabled && !busy) command.onInvoke(); }
-    final main = _button(buildContext, icon, action, enabled && !busy, state);
+    final main = _button(buildContext, icon, action, enabled && !busy, state, compactSmall);
     final child = switch (command.type) {
-      RibbonCommandType.menu || RibbonCommandType.gallery => _MenuButton(command, context, icon, enabled && !busy, action, compact: compact),
+      RibbonCommandType.menu || RibbonCommandType.gallery => _MenuButton(command, context, icon, enabled && !busy, action, compact: compact, compactSmall: compactSmall),
       RibbonCommandType.split => Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1106,6 +1214,7 @@ class _CommandButton extends StatelessWidget {
               action,
               invoke: false,
               compact: false,
+              compactSmall: compactSmall,
             ),
           ],
         ),
@@ -1116,7 +1225,7 @@ class _CommandButton extends StatelessWidget {
         : child;
     return Tooltip(message: tooltip, child: Semantics(button: true, enabled: enabled, checked: command.type == RibbonCommandType.toggle ? state == RibbonCheckState.checked : null, label: command.label, child: constrainedChild));
   }
-  Widget _button(BuildContext buildContext, Widget icon, VoidCallback action, bool enabled, RibbonCheckState state) {
+  Widget _button(BuildContext buildContext, Widget icon, VoidCallback action, bool enabled, RibbonCheckState state, bool compactSmall) {
     final selected = command.type == RibbonCommandType.toggle && state == RibbonCheckState.checked;
     if (command.size == RibbonCommandSize.large && !compact) {
       return SizedBox(
@@ -1142,7 +1251,7 @@ class _CommandButton extends StatelessWidget {
         ),
       );
     }
-    if (command.size == RibbonCommandSize.medium || compact) {
+    if ((command.size == RibbonCommandSize.medium && !compactSmall) || (compact && command.size == RibbonCommandSize.large)) {
       return SizedBox(
         height: _controlHeight,
         child: TextButton.icon(
@@ -1170,8 +1279,8 @@ class _CommandButton extends StatelessWidget {
   }
 }
 class _MenuButton extends StatelessWidget {
-  const _MenuButton(this.command, this.context, this.icon, this.enabled, this.onInvoke, {this.invoke = true, this.compact = false});
-  final RibbonCommand command; final RibbonContext context; final Widget icon; final bool enabled; final VoidCallback onInvoke; final bool invoke; final bool compact;
+  const _MenuButton(this.command, this.context, this.icon, this.enabled, this.onInvoke, {this.invoke = true, this.compact = false, this.compactSmall = false});
+  final RibbonCommand command; final RibbonContext context; final Widget icon; final bool enabled; final VoidCallback onInvoke; final bool invoke; final bool compact; final bool compactSmall;
   @override Widget build(BuildContext buildContext) => MenuAnchor(
     menuChildren: command.type == RibbonCommandType.gallery
         ? [SizedBox(
@@ -1229,7 +1338,7 @@ class _MenuButton extends StatelessWidget {
           ),
         );
       }
-      if (command.size == RibbonCommandSize.medium || compact) {
+      if ((command.size == RibbonCommandSize.medium && !compactSmall) || (compact && command.size == RibbonCommandSize.large)) {
         return SizedBox(
           height: _controlHeight,
           child: TextButton.icon(
