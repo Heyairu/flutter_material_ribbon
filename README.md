@@ -9,6 +9,7 @@ Material 3 ribbon components for Flutter desktop, web, phone, and adaptive layou
 - Small, medium, and large commands, including action, toggle, menu, split, and gallery variants.
 - A customizable Quick Access Toolbar, optional persistence, and optional command search.
 - Keyboard key tips (`Alt`, `F10`, or a tab/command key tip) and `Ctrl+F1` to collapse or expand the ribbon.
+- Host-controlled tabs, KeyTips, focus, shortcut registration, and unified async command dispatch.
 - Ribbon-ready gallery, colour picker, combo box, font picker, text box, and spin box controls.
 - An adaptive compact layout below 720 logical pixels, or whenever `compact` is set explicitly.
 
@@ -97,6 +98,29 @@ class _EditorPageState extends State<EditorPage> {
   }
 }
 ```
+
+## External control
+
+```dart
+final ribbon = RibbonController();
+final keyTips = RibbonKeyTipController();
+
+MaterialRibbon(
+  controller: ribbon,
+  keyTipController: keyTips,
+  selectedTabId: selectedTabId,
+  onSelectedTabChanged: (id) => setState(() => selectedTabId = id),
+  onCommandInvoked: (event) async {
+    // Central logging, permissions, IPC, undo/redo, and async work.
+    await dispatch(event.commandId, value: event.value);
+  },
+  onCommandError: (event, error, stackTrace) => report(error, stackTrace),
+  context: ribbonContext,
+  tabs: tabs,
+)
+```
+
+Gallery choices arrive in `CommandInvocation.value`. While an async dispatch is running, the command displays a progress indicator and ignores reentry by default. Custom header or control actions can register through `RibbonKeyTipTarget`; dynamic menus and popup lifecycle use `menuBuilder`, `onMenuOpen`, and `onMenuClose`.
 
 ## Commands and groups
 
@@ -197,7 +221,42 @@ Pass `quickAccessCommands` to set the default Quick Access Toolbar. The older `l
 
 `quickAccessCommands` is always the program-defined default. To represent a user deliberately removing every QAT command, persist `RibbonPersonalization(quickAccessCustomized: true)`: an empty command-ID list then renders a genuinely empty QAT instead of falling back to the default.
 
+Preferences can be serialized directly with `toJson()` and restored with `RibbonPersonalization.fromJson(...)`. Pass a `migration` callback when loading an older schema:
+
+```dart
+final preferences = RibbonPersonalization.fromJson(
+  storedJson,
+  migration: migrateRibbonPreferences,
+);
+```
+
 Set `showCustomizationButton: true` to expose a built-in dialog where people can choose Quick Access commands, show or hide tabs, and reorder tabs. The result is sent through the same personalization callback or store.
+
+## Layout, localization, and scrolling
+
+Use `compactBreakpoint` to replace the default 720px breakpoint and `onLayoutModeChanged` to observe the resolved `RibbonLayoutMode`.
+
+Built-in UI defaults to English. Add `RibbonLocalizations.delegate` to the app's `localizationsDelegates` to resolve English or Traditional Chinese from `Locale`; pass `localizations` to `MaterialRibbon` only when a single ribbon needs application-specific wording.
+
+```dart
+MaterialApp(
+  localizationsDelegates: const [
+    RibbonLocalizations.delegate,
+    DefaultMaterialLocalizations.delegate,
+    DefaultWidgetsLocalizations.delegate,
+  ],
+  supportedLocales: const [Locale('en'), Locale('zh', 'TW')],
+)
+```
+
+External scroll controllers can be supplied through `headerScrollController` and `bodyScrollController`. The ribbon controller can also reveal named content:
+
+```dart
+ribbonController.scrollToTab('view');
+ribbonController.scrollToGroup('paragraph', tabId: 'home');
+```
+
+Set a stable `RibbonGroup.id` when using `scrollToGroup`; the group label remains a compatibility fallback.
 
 ## Keyboard and accessibility
 
@@ -252,3 +311,33 @@ See [API.md](API.md) for the complete public API, constructor parameters, and be
 flutter analyze
 flutter test
 ```
+
+## Command feedback and safe personalization
+
+Use `onCommandFeedback` to present application-owned progress, success, and
+failure UI. The package does not show snackbars or dialogs itself, so feedback
+fits the host application's error reporting and undo model.
+
+```dart
+MaterialRibbon(
+  // ...
+  onCommandFeedback: (feedback) {
+    if (feedback.type == RibbonCommandFeedbackType.failed) {
+      showError(feedback.error!);
+    }
+  },
+)
+```
+
+`RibbonPersonalization.toJson()` and `fromJson()` are the import/export format.
+Before use, `validated(commandIds: ..., tabIds: ...)` removes stale or duplicate
+IDs after an application update. The built-in customization dialog has a
+**Reset to defaults** action; hosts can reset a controlled value with
+`RibbonPersonalization.defaults`.
+
+## Supported platforms
+
+The package compiles for Android, iOS, Linux, macOS, web, and Windows. Its
+full keyboard-first Ribbon interaction is designed for desktop and web; compact
+layout is used below the configured breakpoint. Test the host application's
+touch behaviour and text scale with its own command set before shipping mobile.

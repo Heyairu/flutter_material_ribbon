@@ -1,6 +1,6 @@
 # API Reference
 
-This reference describes the public API exported by `package:material_ribbon/material_ribbon.dart` in version 1.1.0.
+This reference describes the public API exported by `package:material_ribbon/material_ribbon.dart` in version 1.2.0.
 
 ## Data models and enums
 
@@ -23,16 +23,20 @@ Immutable application state passed to the ribbon when it evaluates command and t
 | `RibbonCommandType` | `action`, `toggle`, `menu`, `split`, `gallery` | Chooses the command interaction pattern. |
 | `RibbonCheckState` | `unchecked`, `checked`, `mixed` | State returned by a toggle command. The checked state receives selected styling. |
 | `RibbonChipSelectionBehavior` | `toggle`, `select`, `deselect`, `preserve` | Determines the value sent to a chip's `onSelected` callback. |
+| `RibbonInvocationSource` | `button`, `keyTip`, `shortcut`, `commandPalette`, `menu`, `gallery` | Identifies how a command was requested. |
+| `RibbonKeyTipLevel` | `hidden`, `header`, `commands` | Public KeyTip state. |
+| `RibbonCommandReentryPolicy` | `ignore`, `allow` | Controls repeated invocation while an async command is running. |
 
 ### `RibbonCommand`
 
-Describes one executable ribbon operation. `id`, `label`, `icon`, and `onInvoke` are required.
+Describes one executable ribbon operation. `id`, `label`, and `icon` are required; provide either legacy `onInvoke` or async-capable `onInvoked`.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `id` / `label` | `String` | required | Stable command identifier and visible label. |
 | `icon` | `IconData` | required | Command icon. |
-| `onInvoke` | `VoidCallback` | required | Invoked for the main command action. |
+| `onInvoke` | `VoidCallback?` | `null` | Backward-compatible synchronous action. |
+| `onInvoked` | `RibbonCommandHandler?` | `null` | Receives `CommandInvocation` and may return a `Future`. |
 | `description` | `String?` | `null` | Searchable command-palette description. |
 | `shortcut` / `keyTip` | `String?` | `null` | Tooltip shortcut text and Alt/F10 key-tip label. |
 | `type` | `RibbonCommandType` | `action` | Command interaction pattern. |
@@ -46,6 +50,20 @@ Describes one executable ribbon operation. `id`, `label`, `icon`, and `onInvoke`
 | `selectedValue` | `Object? Function(RibbonContext)?` | `null` | Selected gallery value. |
 | `onGalleryPreview` | `ValueChanged<Object?>?` | `null` | Receives the gallery value on pointer entry. |
 | `onGalleryPreviewEnd` | `VoidCallback?` | `null` | Called when the gallery pointer exits. |
+| `onGallerySelected` | `ValueChanged<Object?>?` | `null` | Receives the selected gallery value. |
+| `onMenuOpen` / `onMenuClose` | `VoidCallback?` | `null` | Popup lifecycle hooks. |
+| `menuBuilder` | `WidgetBuilder?` | `null` | Builds dynamic menu content. |
+| `reentryPolicy` | `RibbonCommandReentryPolicy` | `ignore` | Async command reentry policy. |
+
+### External control
+
+`RibbonController.selectTab` programmatically changes the active tab. A controlled host can instead pass `selectedTabId` and `onSelectedTabChanged` to `MaterialRibbon`.
+
+`RibbonKeyTipController` exposes `showHeader()`, `showCommands(tabId)`, `hide()`, and its current `RibbonKeyTipState`. `headerKeyTipTargets` and `controlKeyTipTargets` register application-defined actions; `RibbonKeyTip` displays the same badge on custom controls.
+
+`MaterialRibbon.onCommandInvoked` is the unified dispatch boundary. Its `CommandInvocation` contains the command ID, source, current tab ID, and optional value. Futures automatically show busy state, the default reentry policy ignores duplicate requests, and `onCommandError` receives failures. `onCommandFeedback` receives a `RibbonCommandFeedback` at `started`, `succeeded`, and `failed`, allowing the host to provide progress, completion, error, or undo UI.
+
+`RibbonShortcutRegistry` supports runtime registration, removal, conflict lookup, and `bindingsFor(context)`. Use those bindings in a root `CallbackShortcuts` for application scope; use `shortcutRegistry` on `MaterialRibbon` for ribbon scope. `focusNode`, `autofocus`, and `onNavigationIntent` expose focus and tab-navigation control.
 
 `enabledFor`, `busyFor`, `stateFor`, and `disabledReasonFor` expose the resolved values for a supplied context.
 
@@ -114,22 +132,27 @@ The top-level ribbon widget. `tabs` and `context` are required.
 | `collapsed` | `bool` | `false` | Whether only the 48px header is shown. |
 | `onCollapsedChanged` | `ValueChanged<bool>?` | `null` | Receives collapse toggle requests. |
 | `compact` | `bool?` | `null` | Forces compact or desktop layout; `null` switches below 720px. |
+| `compactBreakpoint` | `double` | `720` | Width used for automatic compact layout. |
+| `onLayoutModeChanged` | `ValueChanged<RibbonLayoutMode>?` | `null` | Reports the resolved compact or expanded mode. |
 | `quickAccessCommands` | `List<RibbonCommand>` | `[]` | Default Quick Access Toolbar commands. |
 | `leadingCommands` | `List<RibbonCommand>` | `[]` | Backwards-compatible Quick Access Toolbar alias. |
 | `personalization` | `RibbonPersonalization?` | `null` | Host-controlled preferences. |
 | `personalizationStore` | `RibbonPersonalizationStore?` | `null` | Optional asynchronous preference store. |
 | `onPersonalizationChanged` | `ValueChanged<RibbonPersonalization>?` | `null` | Receives toolbar customization changes. |
+| `onCommandFeedback` | `RibbonCommandFeedbackHandler?` | `null` | Reports command `started`, `succeeded`, and `failed` lifecycle events. |
 | `commandPalette` | `Widget?` | `null` | Optional desktop-header search widget. |
 | `quickAccessLimit` | `int` | `4` | Commands shown before toolbar overflow. |
 | `quickAccessCollapsed` | `bool` | `false` | Hides Quick Access commands when `true`. |
 | `onQuickAccessCollapsedChanged` | `ValueChanged<bool>?` | `null` | Receives Quick Access visibility toggle requests. |
 | `shortcuts` | `List<RibbonShortcut>` | `[]` | Application-defined keyboard bindings active while focus is in the ribbon. |
 | `showCustomizationButton` | `bool` | `false` | Shows the full Ribbon customization dialog in the header. |
-| `customizationDialogTitle` | `String` | `自訂功能區` | Dialog title and customization button tooltip. |
+| `customizationDialogTitle` | `String?` | `null` | Optional override for the localized dialog title and tooltip. |
 | `onBackstagePressed` | `VoidCallback?` | `null` | Shows a Backstage chip in the header and receives its press. |
 | `backstageLabel` | `String` | `Backstage` | Header Backstage chip label and tooltip. |
 | `backstageIcon` | `IconData` | document icon | Header Backstage chip icon. |
 | `headerActions` | `List<Widget>` | `[]` | Custom actions preceding the tabs inside their shared horizontal scroll area. |
+| `localizations` | `RibbonLocalizations?` | locale-resolved strings | Replaces ribbon labels, tooltips, and semantic text. |
+| `headerScrollController` / `bodyScrollController` | `ScrollController?` | `null` | Exposes header and command-surface scrolling. The host retains ownership. |
 
 Keyboard handling:
 
@@ -142,7 +165,9 @@ In compact mode, the ribbon uses `compactCommands` when configured. Otherwise it
 
 ### `RibbonHorizontalScrollView`
 
-A horizontally scrolling `ListView` with a visible scrollbar. It accepts required `children`, optional `padding`, and `scrollbarPadding`. Pointer wheel movement is translated into horizontal scrolling.
+A horizontally scrolling surface with a visible scrollbar. It accepts required `children` plus optional `padding`, `scrollbarPadding`, and externally owned `controller`. Pointer wheel movement is translated into horizontal scrolling.
+
+`RibbonController.scrollToTab(id)` reveals a header tab. `scrollToGroup(groupId, tabId: ...)` optionally selects a tab and reveals a group. Give `RibbonGroup.id` stable values when using group scrolling; its label is the fallback identifier.
 
 ### `RibbonCol` and `RibbonRowGrid`
 
@@ -207,8 +232,13 @@ Immutable preferences used by `MaterialRibbon`.
 | `quickAccessCustomized` | `bool` | `false` | When `false`, uses program defaults; when `true`, an empty ID list is a deliberately empty QAT. |
 | `tabOrder` | `List<String>` | `[]` |
 | `hiddenTabIds` | `Set<String>` | `{}` |
+| `schemaVersion` | `int` | `RibbonPersonalization.currentSchemaVersion` |
 
-Use `copyWith` to produce an updated preference object.
+Use `copyWith` to produce an updated preference object. `toJson()` produces the import/export format. `RibbonPersonalization.fromJson` decodes it and accepts a `RibbonPersonalizationMigration` hook for older schema versions. `validated(commandIds: ..., tabIds: ...)` removes stale and duplicate IDs after an app update; use `RibbonPersonalization.defaults` to reset every customization.
+
+### `RibbonLocalizations`
+
+Immutable UI strings for the built-in customization UI, tooltips, command search, control labels, and accessibility text. Defaults are English and `traditionalChinese` is included. Add `RibbonLocalizations.delegate` to `MaterialApp.localizationsDelegates` to choose automatically by locale, or pass strings to `MaterialRibbon.localizations` for a one-off override. Dynamic strings use patterns containing `{label}`. Wrap standalone ribbon controls in `RibbonLocalizationsScope` when they are not descendants of `MaterialRibbon`.
 
 ### `RibbonPersonalizationStore`
 
@@ -229,4 +259,4 @@ Defines a keyboard binding owned by the application. Supply an `id`, a Flutter `
 
 ### `RibbonCustomizationPanel`
 
-A controlled UI for choosing Quick Access commands, hiding or showing tabs, and moving tabs up or down. It requires `tabs`, `commands`, `value`, and `onChanged`. Set `MaterialRibbon.showCustomizationButton` to `true` to expose the same panel in a dialog that automatically calls the ribbon's personalization callback/store.
+A controlled UI for choosing Quick Access commands, hiding or showing tabs, and moving tabs up or down. It requires `tabs`, `commands`, `value`, and `onChanged`. `showResetButton` defaults to true and emits `RibbonPersonalization.defaults`. Set `MaterialRibbon.showCustomizationButton` to `true` to expose the same panel in a dialog that automatically calls the ribbon's personalization callback/store.
